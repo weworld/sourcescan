@@ -234,7 +234,7 @@ int main()
 	Variable a("a");	// Variable aa : A <-- a
 	// B &b = a->g;
 	Variable b("b");	// aa.g <-- b
-	// foo(a)			// MARK aa.g.f tained
+	// foo()		// MARK aa.g.f tained
 	// sink(b.f)		// SINK for aa.g.f
 
 	// in void foo(A *z) function statements:
