@@ -93,7 +93,7 @@ public:
 
 class Expression {
 public:
-	Array<Expression*> sub_exprs;
+//	Array<Expression*> sub_exprs;
 };
 
 //class Reference : Expression {
