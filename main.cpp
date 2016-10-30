@@ -129,6 +129,7 @@ int main()
 	const char *source_rules[] = { "source" };
 	const char *sink_rules[] = { "sink" };
 
+	// model to be analyzed
 	Array<Declaration*> global_decls;
 	Array<Declaration*> current_scope_decls;
 	Array<Statement*> current_scope_stmts;
@@ -136,6 +137,9 @@ int main()
 	Array<Declaration*> sources_db; // declare
 	Array<Declaration*> sink_db; // use
 
+	// Try generate a sourcecode model
+	// Now only demo test.cpp structue
+	
 	FILE *f = fopen("test.cpp", "r");
 	if (!f) {
 		perror("fopen");
@@ -224,6 +228,8 @@ int main()
 			break;
 	}
 	free(content);
+
+	// Playground to check the source code model, manully setup one to check
 
 	Function sink("sink");
 	Function source("source");
