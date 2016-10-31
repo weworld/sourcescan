@@ -276,11 +276,10 @@ int main()
     // B &b = a->g;
     Variant b("b");     // aa.g <-- b
     b.refer(aa.member("g"));
-    foo.invoke(a);
-    sink.invoke(b.member("f"));
-
     // foo(a)           // MARK aa.g.f tained
+    foo.invoke(a);
     // sink(b.f)        // SINK for aa.g.f
+    sink.invoke(b.member("f"));
 
     // in void foo(A *z) function statements:
     // B *x = &z->g;
