@@ -266,10 +266,10 @@ int main()
     Function main("main");
     // in main function statements:
     // A *a = new A();
-    Variant a("a"); // Variant aa : A <-- a
+    Variant a("a");     // Variant aa : A <-- a
     // B &b = a->g;
-    Variant b("b"); // aa.g <-- b
-    // foo()        // MARK aa.g.f tained
+    Variant b("b");     // aa.g <-- b
+    // foo()            // MARK aa.g.f tained
     // sink(b.f)        // SINK for aa.g.f
 
     // in void foo(A *z) function statements:
