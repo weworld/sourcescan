@@ -37,7 +37,7 @@ template <typename T1, typename T2>
 using Pair = std::pair<T1, T2>;
 
 template <typename T1, typename T2>
-using Map = std:map<T1, T2>;
+using Map = std::map<T1, T2>;
 
 typedef enum MetaType {
     MT_Type, MT_Variant, MT_Function
