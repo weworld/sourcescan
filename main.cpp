@@ -15,7 +15,7 @@ template <typename T1, typename T2>
 using Pair = std::pair<T1, T2>;
 
 typedef enum MetaType {
-	MT_Type, MT_Variable, MT_Function
+	MT_Type, MT_Variant, MT_Function
 } MetaType;
 
 typedef enum MetaClass {
@@ -45,15 +45,15 @@ class Statement;
 class Expression;
 class Class;
 
-struct Variable : public Declaration {
-	Variable *refer; // if is a pointer or a refer
+struct Variant : public Declaration {
+	Variant *refer; // if is a pointer or a refer
 	int tag;
-	//Class *ologyClass; For an object Variable, use base_type as a Class.
+	//Class *ologyClass; For an object Variant, use base_type as a Class.
 
-	Variable(const String& name) : Declaration(name, MT_Variable, MC_Void) { // Void means not yet set.
+	Variant(const String& name) : Declaration(name, MT_Variant, MC_Void) { // Void means not yet set.
 	}
 
-	const Variable* getRefer() const {
+	const Variant* getRefer() const {
 		return refer;
 	}
 
@@ -61,7 +61,7 @@ struct Variable : public Declaration {
 	}
 };
 
-struct Member : public Variable {
+struct Member : public Variant {
 	Declaration *enclosure_type; // class or enum name
 	bool isClassMember;
 };
@@ -77,7 +77,7 @@ public:
 class Function : public Declaration {
 public:
 	Class *clazz;
-	Array<Variable> parameters; // for binding with Call(arguments)
+	Array<Variant> parameters; // for binding with Call(arguments)
 	Array<Statement> stmts;
 
 	Function(const String& name) : Declaration(name, MT_Function, MC_Void) { // Void means not yet set.
@@ -103,7 +103,8 @@ public:
 
 class Value : public Expression {
 public:
-	Variable *value;
+	Variant *variant;
+	Array<Pair<String,String>> values
 };
 
 class ConstValue : public Expression {
@@ -237,9 +238,9 @@ int main()
 	Function main("main");
 	// in main function statements:
 	// A *a = new A();
-	Variable a("a");	// Variable aa : A <-- a
+	Variant a("a");	// Variant aa : A <-- a
 	// B &b = a->g;
-	Variable b("b");	// aa.g <-- b
+	Variant b("b");	// aa.g <-- b
 	// foo()		// MARK aa.g.f tained
 	// sink(b.f)		// SINK for aa.g.f
 
