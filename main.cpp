@@ -1,67 +1,80 @@
-#include <cstdlib>
-#include <list>
-#include <string>
-#include <vector>
-#include <map>
-#include <iostream>
-
-typedef std::string String;
-
-//#define Array std::vector -- use c++11 template-using
-template <typename T>
-using Array = std::vector<T>;
-
-//#define Pair std::pair
-template <typename T1, typename T2>
-using Pair = std::pair<T1, T2>;
-
-template <typename T1, typename T2>
-using Map = std::map<T1, T2>;
-
-typedef enum MetaType {
-    MT_Type, MT_Variant, MT_Function
-} MetaType;
-
-typedef enum MetaClass {
-    MC_Void, MC_PrimaryType, MC_Enum, MC_Pointer, MC_Reference, MC_Class
-} MetaClass;
-
-struct Declaration {
-    String file;
-    int line;
-
-    int meta_type; // 0 type 1 var 2 function
-    int meta_class; // 0 void 1 primary type 2 enum 3 pointers 4 references 5 class / struct (type defines)
-
-    // type for class first public base & var & functioin return & pointers or typedef => int/float/double
-    Declaration *base_type;
-    String name;
-
-    Declaration(const String& name, MetaType mt, MetaClass mc) : name(name), meta_type(mt), meta_class(mc) {
+#include <cstdlib>                                                                                                                                                             
+#include <list>                                                                                                                                                                
+#include <string>                                                                                                                                                              
+#include <vector>                                                                                                                                                              
+#include <map>                                                                                                                                                                 
+#include <iostream>                                                                                                                                                            
+                                                                                                                                                                               
+typedef std::string String;                                                                                                                                                    
+                                                                                                                                                                               
+//#define Array std::vector -- use c++11 template-using                                                                                                                        
+template <typename T>                                                                                                                                                          
+using Array = std::vector<T>;                                                                                                                                                  
+                                                                                                                                                                               
+//#define Pair std::pair                                                                                                                                                       
+template <typename T1, typename T2>                                                                                                                                            
+using Pair = std::pair<T1, T2>;                                                                                                                                                
+                                                                                                                                                                               
+template <typename T1, typename T2>                                                                                                                                            
+using Map = std::map<T1, T2>;                                                                                                                                                  
+                                                                                                                                                                               
+typedef enum MetaType {                                                                                                                                                        
+    MT_Type, MT_Variant, MT_Function                                                                                                                                           
+} MetaType;                                                                                                                                                                    
+                                                                                                                                                                               
+typedef enum MetaClass {                                                                                                                                                       
+    MC_Void, MC_PrimaryType, MC_Enum, MC_Pointer, MC_Reference, MC_Class                                                                                                       
+} MetaClass;                                                                                                                                                                   
+                                                                                                                                                                               
+struct Declaration {                                                                                                                                                           
+    String file;                                                                                                                                                               
+    int line;                                                                                                                                                                  
+                                                                                                                                                                               
+    int meta_type; // 0 type 1 var 2 function                                                                                                                                  
+    int meta_class; // 0 void 1 primary type 2 enum 3 pointers 4 references 5 class / struct (type defines)                                                                    
+                                                                                                                                                                               
+    // type for class first public base & var & functioin return & pointers or typedef => int/float/double                                                                     
+    Declaration *base_type;                                                                                                                                                    
+    String name;                                                                                                                                                               
+                                                                                                                                                                               
+    Declaration(const String& name, MetaType mt, MetaClass mc) : name(name), meta_type(mt), meta_class(mc) {                                                                   
+    }                                                                                                                                                                          
+                                                                                                                                                                               
+    const String& getName() const {                                                                                                                                            
+        return name;                                                                                                                                                           
+    }                                                                                                                                                                          
+};                                                                                                                                                                             
+                                                                                                                                                                               
+class Statement;                                                                                                                                                               
+class Expression;                                                                                                                                                              
+class Class;                                                                                                                                                                   
+class Value;                                                                                                                                                                   
+                                                                                                                                                                               
+struct Variant : public Declaration {                                                                                                                                          
+    Variant *refer_; // if is a pointer or a refer                                                                                                                             
+    //Class *ologyClass; For an object Variant, use base_type as a Class.                                                                                                      
+                                                                                                                                                                               
+    int tag;                                                                                                                                                                   
+    Map<String, int> *tags; // class or struct                                                                                                                                 
+                                                                                                                                                                               
+    Variant(const String& name) : Declaration(name, MT_Variant, MC_Void) { // Void means not yet set.                                                                          
+    }                                                                                                                                                                          
+                                                                                                                                                                               
+    Variant(const String& name, const Class& clazz) : Declaration(name, MT_Variant, MC_Class) { // a real object                                                               
+    }                                                                                                                                                                          
+                                                                                                                                                                               
+    const Variant* getRefer() const {                                                                                                                                          
+        return refer_;                                                                                                                                                         
     }
 
-    const String& getName() const {
-        return name;
-    }
-};
-
-class Statement;
-class Expression;
-class Class;
-class Value;
-
-struct Variant : public Declaration {
-    Variant *refer; // if is a pointer or a refer
-    //Class *ologyClass; For an object Variant, use base_type as a Class.
-
-    int tag;
-    Map<String, int> *tags; // class or struct 
-
-    Variant(const String& name) : Declaration(name, MT_Variant, MC_Void) { // Void means not yet set.
+    void point(const Variant& dest) {
     }
 
-    const Variant* getRefer() const {
-        return refer;
+    void refer(const Variant& dest) {
+    }
+
+    const Variant& member(const String& name) {
+        return *refer_; // TODO change
     }
 
     void init(Statement* stmt) {
@@ -89,6 +102,9 @@ public:
 
     Function(const String& name) : Declaration(name, MT_Function, MC_Void) { // Void means not yet set.
     }
+
+    void invoke(const Variant& a) {
+    }
 };
 
 class Class : public Declaration {
@@ -96,6 +112,13 @@ public:
     Array<Member> members; // for enum & class
     Array<Function> memberFunctions; // for enum & class
     Array<Declaration*> parents; // for class / struct include base
+
+    Class(const String& name) : Declaration(name, MT_Type, MC_Class) {
+    }
+
+    bool setupClassMember(const Class& memb_Clazz, const String& memb_name) {
+        return false;
+    }
 };
 
 class Expression {
@@ -246,8 +269,16 @@ int main()
     // in main function statements:
     // A *a = new A();
     Variant a("a");     // Variant aa : A <-- a
+    Class A("A"), B("B");
+    A.setupClassMember(B, "g");
+    Variant aa("aa", A);
+    a.point(aa);
     // B &b = a->g;
     Variant b("b");     // aa.g <-- b
+    b.refer(aa.member("g"));
+    foo.invoke(a);
+    sink.invoke(b.member("f"));
+
     // foo(a)           // MARK aa.g.f tained
     // sink(b.f)        // SINK for aa.g.f
 
@@ -258,5 +289,3 @@ int main()
 
     return 0;
 }
-
-
