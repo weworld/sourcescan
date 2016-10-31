@@ -1,3 +1,3 @@
 # sourcescan
 
-A static source code analyzing tool, try to implement Data Flow Analysis first.
+A static source code analyzer tool, try to implement Data Flow Analysis first.
