@@ -248,7 +248,7 @@ int main()
     Variant a("a");     // Variant aa : A <-- a
     // B &b = a->g;
     Variant b("b");     // aa.g <-- b
-    // foo()            // MARK aa.g.f tained
+    // foo(a)           // MARK aa.g.f tained
     // sink(b.f)        // SINK for aa.g.f
 
     // in void foo(A *z) function statements:
