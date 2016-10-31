@@ -2,27 +2,6 @@
 #include <list>
 #include <string>
 #include <vector>
-#include <iostream>
-
-typedef std::string String;
-
-//#define Array std::vector -- use c++11 template-using
-template <typename T>
-using Array = std::vector<T>;
-
-//#define Pair std::pair
-template <typename T1, typename T2>
-using Pair = std::pair<T1, T2>;
-
-typedef enum MetaType {
-	MT_Type, MT_Variant, MT_Function
-} MetaType;
-
-typedef enum MetaClass {
-#include <cstdlib>
-#include <list>
-#include <string>
-#include <vector>
 #include <map>
 #include <iostream>
 
