@@ -56,7 +56,7 @@ class Function;
 class Class : public Declaration {
 public:
     Map<String, Member*> members; // for enum & class
-    Array<Function> memberFunctions; // for enum & class
+    Array<Function*> memberFunctions; // for enum & class
     Array<Declaration*> parents; // for class / struct include base
 
     Class(const String& name) : Declaration(name, nullptr, MT_Type, MC_Class) {
@@ -101,7 +101,7 @@ struct Member : public Variant {
     bool isClassMember;
 
     Member(const String& name, Class& clazz, Class& enclosure_type, bool isClassMember = false)
-        : Variant(name, clazz), enclosure_type(enclosure_type), isClassMember(isClassMember) {
+        : Variant(name, clazz), enclosure_type(&enclosure_type), isClassMember(isClassMember) {
     }
 };
 
