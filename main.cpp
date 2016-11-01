@@ -46,11 +46,25 @@ struct Declaration {
     }                                                                                                                                                                          
 };                                                                                                                                                                             
                                                                                                                                                                                
-class Statement;                                                                                                                                                               
-class Expression;                                                                                                                                                              
-class Class;                                                                                                                                                                   
-class Value;                                                                                                                                                                   
-                                                                                                                                                                               
+class Statement;
+class Expression;
+class Class;
+class Member;
+class Function;
+//class Value;
+
+class Class : public Declaration {
+public:
+    Map<String, Member*> members; // for enum & class
+    Array<Function> memberFunctions; // for enum & class
+    Array<Declaration*> parents; // for class / struct include base
+
+    Class(const String& name) : Declaration(name, nullptr, MT_Type, MC_Class) {
+    }
+
+    bool setupClassMember(Class& memb_Clazz, const String& memb_name);
+};
+
 struct Variant : public Declaration {                                                                                                                                          
     Variant *refer_; // if is a pointer or a refer                                                                                                                             
     //Class *ologyClass; For an object Variant, use base_type as a Class.                                                                                                      
@@ -112,20 +126,10 @@ public:
     }
 };
 
-class Class : public Declaration {
-public:
-    Map<String, Member*> members; // for enum & class
-    Array<Function> memberFunctions; // for enum & class
-    Array<Declaration*> parents; // for class / struct include base
-
-    Class(const String& name) : Declaration(name, nullptr, MT_Type, MC_Class) {
-    }
-
-    bool setupClassMember(Class& memb_Clazz, const String& memb_name) {
-        members[memb_name] = new Member(memb_name, memb_Clazz, *this);
-        return false;
-    }
-};
+bool Class::setupClassMember(Class& memb_Clazz, const String& memb_name) {
+    members[memb_name] = new Member(memb_name, memb_Clazz, *this);
+    return false;
+}
 
 class Expression {
 public:
