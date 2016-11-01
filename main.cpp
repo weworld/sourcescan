@@ -37,7 +37,8 @@ struct Declaration {
     Declaration *base_type;                                                                                                                                                    
     String name;                                                                                                                                                               
                                                                                                                                                                                
-    Declaration(const String& name, MetaType mt, MetaClass mc) : name(name), meta_type(mt), meta_class(mc) {                                                                   
+    Declaration(const String& name, Declaration *base_type, MetaType mt, MetaClass mc)
+        : name(name), base_type(base_type), meta_type(mt), meta_class(mc) {                                                                   
     }                                                                                                                                                                          
                                                                                                                                                                                
     const String& getName() const {                                                                                                                                            
@@ -57,10 +58,10 @@ struct Variant : public Declaration {
     int tag;                                                                                                                                                                   
     Map<String, int> *tags; // class or struct                                                                                                                                 
                                                                                                                                                                                
-    Variant(const String& name) : Declaration(name, MT_Variant, MC_Void) { // Void means not yet set.                                                                          
+    Variant(const String& name) : Declaration(name, nullptr, MT_Variant, MC_Void) { // Void means not yet set.                                                                          
     }                                                                                                                                                                          
                                                                                                                                                                                
-    Variant(const String& name, const Class& clazz) : Declaration(name, MT_Variant, MC_Class) { // a real object                                                               
+    Variant(const String& name, Class& clazz) : Declaration(name, &clazz, MT_Variant, MC_Class) { // a real object                                                               
     }                                                                                                                                                                          
                                                                                                                                                                                
     const Variant* getRefer() const {                                                                                                                                          
@@ -82,8 +83,12 @@ struct Variant : public Declaration {
 };
 
 struct Member : public Variant {
-    Class *enclosure_type; // class or enum name
+    Class* enclosure_type; // class or enum name
     bool isClassMember;
+    
+    Member(const String& name, Class& clazz, Class& enclosure_type, bool isClassMember = false)
+        : Variant(name, clazz), enclosure_type(enclosure_type), isClassMember(isClassMember) {
+    }
 };
 
 class Statement {
@@ -100,7 +105,7 @@ public:
     Array<Variant> parameters; // for binding with Call(arguments)
     Array<Statement> stmts;
 
-    Function(const String& name) : Declaration(name, MT_Function, MC_Void) { // Void means not yet set.
+    Function(const String& name) : Declaration(name, nullptr, MT_Function, MC_Void) { // Void means not yet set.
     }
 
     void invoke(const Variant& a) {
@@ -109,14 +114,15 @@ public:
 
 class Class : public Declaration {
 public:
-    Array<Member> members; // for enum & class
+    Map<String, Member*> members; // for enum & class
     Array<Function> memberFunctions; // for enum & class
     Array<Declaration*> parents; // for class / struct include base
 
-    Class(const String& name) : Declaration(name, MT_Type, MC_Class) {
+    Class(const String& name) : Declaration(name, nullptr, MT_Type, MC_Class) {
     }
 
-    bool setupClassMember(const Class& memb_Clazz, const String& memb_name) {
+    bool setupClassMember(Class& memb_Clazz, const String& memb_name) {
+        members[memb_name] = new Member(memb_name, memb_Clazz, *this);
         return false;
     }
 };
