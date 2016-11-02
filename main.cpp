@@ -30,8 +30,8 @@ struct Declaration {
     String file;
     int line;
 
-    int meta_type; // 0 type 1 var 2 function
-    int meta_class; // 0 void 1 primary type 2 enum 3 pointers 4 references 5 class / struct (type defines)
+    MetaType meta_type; // 0 type 1 var 2 function
+    MetaClass meta_class; // 0 void 1 primary type 2 enum 3 pointers 4 references 5 class / struct (type defines)
 
     // type for class first public base & var & functioin return & pointers or typedef => int/float/double
     Declaration *base_type;
@@ -55,46 +55,117 @@ class Function;
 
 class Class : public Declaration {
 public:
-    Map<String, Member*> members; // for enum & class
-    Array<Function*> memberFunctions; // for enum & class
+    Map<const String, Member> member_templates; // template members (Variant) for enum & class
+    Array<Function*> methods; // for enum & class
     Array<Declaration*> parents; // for class / struct include base
 
     Class(const String& name) : Declaration(name, nullptr, MT_Type, MC_Class) {
     }
 
-    bool setupClassMember(Class& memb_Clazz, const String& memb_name);
+    bool setupClassMember(const String& memb_name, Class& memb_Clazz, bool isClassMember = false);
+    bool setupPointerMember(const String& memb_name, const String& type, bool isClassMember = false);
 };
 
 struct Variant : public Declaration {
     Variant *refer_; // if is a pointer or a refer
     //Class *ologyClass; For an object Variant, use base_type as a Class.
 
-    int tag;
-    Map<String, int> *tags; // class or struct
+    int tag_;
+    //Map<const String, int> *tags; // class or struct
+    Map<const String, Member> *members; // for enum & class
 
-    Variant(const String& name) : Declaration(name, nullptr, MT_Variant, MC_Void) { // Void means not yet set.
+    Variant(const String& name) : Declaration(name, nullptr, MT_Variant, MC_Void), tag_(0) { // Void means not yet set.
+		std::cout << "Instance variant name " << name << std::endl;
     }
 
-    Variant(const String& name, Class& clazz) : Declaration(name, &clazz, MT_Variant, MC_Class) { // a real object
+    Variant(const String& name, Class& clazz) : Declaration(name, &clazz, MT_Variant, MC_Class), tag_(0) { // a real object
+		std::cout << "Instance class.name = " << clazz.name << " memb_name " << name << std::endl;
+        members = new Map<const String, Member>(clazz.member_templates); // ?? *members = clazz.member_templates;
     }                                                                                                                                                                          
+
+    Variant(const Variant& rhs) : Declaration(rhs.name, rhs.base_type, rhs.meta_type, rhs.meta_class) {
+		refer_ = rhs.refer_;
+		tag_ = rhs.tag_;
+		if (meta_class == MC_Class) {
+			std::cout << "Class var Copy!! " << rhs.name  << std::endl;
+	        members = new Map<const String, Member>(static_cast<Class*>(rhs.base_type)->member_templates);
+		} else {
+			std::cout << "var Copy!! " << rhs.name << std::endl;
+			members = nullptr;
+		}
+	}
+
+private:
+
+	//friend class Member;
+
+	//Variant() : Declaration("", nullptr, MT_Variant, MC_Void) {
+	//}
+
+	//Variant(Variant* some) : Declaration("", nullptr, MT_Variant, MC_Void) { // Void
+	//}
+
+public:
+
+	static Variant null_Variant;
 
     const Variant* getRefer() const {
         return refer_;
     }
 
-    void point(const Variant& dest) {
+	bool assign(Variant& var) {
+		meta_class = var.meta_class;
+		if (var.meta_class == MC_Pointer || var.meta_class == MC_Reference) {
+	        refer_ = var.refer_;
+		} else {
+	        refer_ = nullptr;
+		}
+		tag_ = var.tag_;
+		return true;
+	}
+
+    bool point(Variant& dest) {
+		meta_class = MC_Pointer;
+		if (dest.meta_class != MC_Void) {
+	        refer_ = &dest;
+		} else {
+	        refer_ = nullptr;
+		}
+		return true;
     }
 
-    void refer(const Variant& dest) {
+    bool refer(Variant& dest) {
+		if (dest.meta_class != MC_Void) {
+	        meta_class = MC_Reference;
+    	    refer_ = &dest;
+			return true;
+		}
+		return false;
     }
 
-    const Variant& member(const String& name) {
-        return *refer_; // TODO change
-    }
+	void tag(int t) {
+		if ((meta_class == MC_Pointer || meta_class == MC_Reference) && refer_) {
+			refer_->tag_ = t;
+		} else {
+			tag_ = t;
+		}
+	}
+
+	int getRefTag() {
+		if ((meta_class == MC_Pointer || meta_class == MC_Reference) && refer_) {
+			return refer_->tag_;
+		} else {
+			return tag_;
+		}
+	}
+
+    Variant& member(const String& name); // for class
 
     void init(Statement* stmt) {
     }
 };
+
+Variant Variant::null_Variant("");
 
 struct Member : public Variant {
     Class* enclosure_type; // class or enum name
@@ -103,7 +174,47 @@ struct Member : public Variant {
     Member(const String& name, Class& clazz, Class& enclosure_type, bool isClassMember = false)
         : Variant(name, clazz), enclosure_type(&enclosure_type), isClassMember(isClassMember) {
     }
+
+    Member(const String& name, Class& enclosure_type, bool isClassMember = false)
+        : Variant(name), enclosure_type(&enclosure_type), isClassMember(isClassMember) {
+    }
+
+    Member(const Member& rhs) = default;
+#if 0
+	 {
+		refer_ = rhs.refer_;
+		tag_ = rhs.tag_;
+		/*
+		if (meta_class == MC_Class) {
+	        //members = new Map<const String, Member>(rhs.enclosure_type->member_templates); // *members = clazz.member_templates;
+			members = rhs.members;
+		} else {
+			members = nullptr;
+		}
+		*/
+	}
+#endif
+
+    Member& operator=(const Member&) = default;
 };
+
+Variant& Variant::member(const String& name) { // for class or pointer/reference of class
+	if (refer_ && refer_->meta_class == MC_Class && refer_->members) {
+		std::cout << "RCLASS_MEMB:" << refer_->name << ">" << name << ", and this name is:" << this->name << std::endl;
+		Map<const String, Member>::iterator it = refer_->members->find(name);
+		if (it != refer_->members->end()) {
+			return it->second;
+		}
+	} else if (meta_class == MC_Class && members) {
+		std::cout << "CLASS_MEM:" << this->name << ">" << name << std::endl;
+		Map<const String, Member>::iterator it = members->find(name);
+		if (it != members->end()) {
+			return it->second;
+		}
+	}
+	std::cout << "NO_CLASS_MEM:" << "?THIS=" << this->name << ",?REF@" << refer_  << "=" << refer_->name << ", >" << name << std::endl;
+	return null_Variant;
+}
 
 class Statement {
 public:
@@ -122,12 +233,24 @@ public:
     Function(const String& name) : Declaration(name, nullptr, MT_Function, MC_Void) { // Void means not yet set.
     }
 
-    void invoke(const Variant& a) {
+    Variant& invoke(Variant& a) {
+		std::cout << "input tag = " << a.getRefTag() << " name=" << a.name << ", refer_to=" << (a.refer_? a.refer_->name : "") << std::endl;
+		if (a.getRefTag()) {
+			std::cout << "polution source" << std::endl;
+		}
+		return a;
     }
 };
 
-bool Class::setupClassMember(Class& memb_Clazz, const String& memb_name) {
-    members[memb_name] = new Member(memb_name, memb_Clazz, *this);
+bool Class::setupClassMember(const String& memb_name, Class& memb_Clazz, bool isClassMember) {
+	std::cout << "Register " << memb_name << " to " << " class " << name << std::endl;
+    member_templates.insert(std::make_pair(memb_name, Member(memb_name, memb_Clazz, *this)));
+    return false;
+}
+
+bool Class::setupPointerMember(const String& memb_name, const String& type, bool isClassMember) {
+	std::cout << "Register " << memb_name << " to " << " class " << name << std::endl;
+    member_templates.insert(std::make_pair(memb_name, Member(memb_name /* TODO pointer? */, *this)));
     return false;
 }
 
@@ -277,25 +400,50 @@ int main()
     Function source("source");
     Function foo("foo");
     Function main("main");
+
     // in main function statements:
     // A *a = new A();
     Variant a("a");     // Variant aa : A <-- a
     Class A("A"), B("B");
-    A.setupClassMember(B, "g");
+
+	std::cout << "S0" << std::endl;
+    A.setupClassMember("g", B);
+	std::cout << "S00" << std::endl;
+    B.setupPointerMember("f", "char*"); // char* f;
+	std::cout << "S000" << std::endl;
     Variant aa("aa", A);
+	std::cout << "S0000" << std::endl;
     a.point(aa);
     // B &b = a->g;
-    Variant b("b");     // aa.g <-- b
-    b.refer(aa.member("g"));
-    // foo(a)           // MARK aa.g.f tained
-    foo.invoke(a);
-    // sink(b.f)        // SINK for aa.g.f
-    sink.invoke(b.member("f"));
+    Variant b("b");             // aa.g <-- b
+	std::cout <<"S1" << std::endl;
+    b.refer(aa.member("g"));    // b.assign(a->g);  // should refer to aa.g
 
+    //sink.invoke(b.member("f"));
+
+    // foo(a)                   // MARK aa.g.f tained
+    foo.invoke(a);
     // in void foo(A *z) function statements:
-    // B *x = &z->g;
-    // char *w = source();  // TO MARK zz.g.f tained
-    // x->f = w;
+	Variant z("z");
+	z.point(aa);                // z.assign(a);		// should point to aa
+	// B *x = &z->g;
+    Variant x("x");
+	std::cout <<"S2" << std::endl;
+	x.point(z.member("g"));
+	// char *w = source();      // TO MARK zz.g.f tained
+    Variant w("w"); 
+	w.assign(source.invoke(w)); // TODO w not correct
+	w.tag(1);					// mimic polution source
+	std::cout << "w.RefTag =" << w.getRefTag() << std::endl;
+	// x->f = w;
+	std::cout <<"S3" << std::endl;
+    x.member("f").assign(w); 
+	std::cout <<"S4" << std::endl;
+	std::cout << "f.RefTag =" << x.member("f").getRefTag() << ">>>   DONE" << std::endl;
+
+    // sink(b.f)        // SINK for aa.g.f
+	std::cout <<"S5" << std::endl;
+    sink.invoke(b.member("f"));
 
     return 0;
 }
