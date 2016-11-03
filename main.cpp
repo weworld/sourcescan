@@ -1,3 +1,8 @@
+/**
+ * Copyright zhudiqi 2016
+ * GNU GPL v3 License.
+ */
+
 #include <cstdlib>
 #include <list>
 #include <string>
