@@ -32,13 +32,13 @@ typedef enum MetaClass {
 } MetaClass;
 
 typedef enum PrimaryType {
-	PT_Void, PT_Int8, PT_UInt8, PT_Int16, PT_UInt16, PT_Int32, PT_UInt32, PT_Int64, PT_UInt64,
-	PT_Char = PT_Int8, PT_UChar = PT_UInt8,
-	PT_Short = PT_Int16, PT_Ushort = PT_UInt16,
-	PT_Int = PT_Int64, PT_UInt = PT_UInt64,
-	PT_LongInt = PT_Int64, PT_ULongInt = PT_UInt64,
-	PT_LongLongInt = PT_Int64, PT_ULongLongInt = PT_UInt64,
-	PT_Float, PT_Double, PT_LongDouble = PT_Double
+    PT_Void, PT_Int8, PT_UInt8, PT_Int16, PT_UInt16, PT_Int32, PT_UInt32, PT_Int64, PT_UInt64,
+    PT_Char = PT_Int8, PT_UChar = PT_UInt8,
+    PT_Short = PT_Int16, PT_Ushort = PT_UInt16,
+    PT_Int = PT_Int64, PT_UInt = PT_UInt64,
+    PT_LongInt = PT_Int64, PT_ULongInt = PT_UInt64,
+    PT_LongLongInt = PT_Int64, PT_ULongLongInt = PT_UInt64,
+    PT_Float, PT_Double, PT_LongDouble = PT_Double
 } PrimaryType;
 
 struct Declaration {
@@ -98,9 +98,9 @@ struct Variant : public Declaration {
         members = new Map<const String, Member>(clazz.member_templates); // ?? *members = clazz.member_templates;
     }                                                                                                                                                                          
 
-	// TODO Distinguish Primary or Primary/Class Pointer
+    // TODO Distinguish Primary or Primary/Class Pointer
     Variant(const String& name, PrimaryType refered_data_type, uint8_t referDeep = 0, Class* clazz = nullptr)
-		: Declaration(name, nullptr, MT_Variant, MC_PrimaryType), refer_(nullptr), tag_(0) { // Void + Deep = 0 means not yet set.
+        : Declaration(name, nullptr, MT_Variant, MC_PrimaryType), refer_(nullptr), tag_(0) { // Void + Deep = 0 means not yet set.
         std::cout << "Instance variant name " << name << std::endl;
     }
 
@@ -136,7 +136,7 @@ public:
 
     bool assign(Variant& var) {
         // TODO not assign meta_class, ONLY Judge it the same:
-		meta_class = var.meta_class;
+        meta_class = var.meta_class;
         if (var.meta_class == MC_Pointer || var.meta_class == MC_Reference) {
             refer_ = var.refer_;
         } else {
@@ -158,13 +158,13 @@ public:
 
     bool refer(Variant& dest) {
         if (dest.meta_class != MC_Void) {
-			std::cout << "REFER_TAG for " << dest.name << " is " << dest.getRefTag() << std::endl;
+            std::cout << "REFER_TAG for " << dest.name << " is " << dest.getRefTag() << std::endl;
             meta_class = MC_Reference;
             refer_ = &dest;
             return true;
         } else {
-			std::cout << "ERROR_REFER source name is " << name << std::endl;
-		}
+            std::cout << "ERROR_REFER source name is " << name << std::endl;
+        }
         return false;
     }
 
@@ -228,7 +228,7 @@ Variant& Variant::member(const String& name) { // for class or pointer/reference
         std::cout << "RCLASS_MEMB:" << refer_->name << ">" << name << ", and this name is:" << this->name << std::endl;
         Map<const String, Member>::iterator it = refer_->members->find(name);
         if (it != refer_->members->end()) {
-			std::cout << "[TAG=" << it->second.getRefTag() << "[MC=" << it->second.meta_class << std::endl;
+            std::cout << "[TAG=" << it->second.getRefTag() << "[MC=" << it->second.meta_class << std::endl;
             return it->second;
         }
     } else if (meta_class == MC_Class && members) {
@@ -472,11 +472,11 @@ int main()
 
     // sink(b.f)        // SINK for aa.g.f
     std::cout <<"S5" << std::endl;
-	Variant rf("rf"); rf.refer(b.member("f")); b.member("f").tag(3);
-	std::cout << "now tag is " << b.member("f").getRefTag() << std::endl;
+    Variant rf("rf"); rf.refer(b.member("f")); b.member("f").tag(3);
+    std::cout << "now tag is " << b.member("f").getRefTag() << std::endl;
     sink.invoke(b.member("f"));
     sink.invoke(rf);
-	aa.member("g").tag(2);
+    aa.member("g").tag(2);
     sink.invoke(b);
 
     return 0;
