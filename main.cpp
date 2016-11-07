@@ -1,14 +1,12 @@
-/**
- * Copyright zhudiqi 2016
- * GNU GPL v3 License.
- */
-
 #include <cstdlib>
 #include <list>
 #include <string>
 #include <vector>
 #include <map>
 #include <iostream>
+
+#include <log/log.h>
+#include "logger.hpp"
 
 typedef std::string String;
 
@@ -32,13 +30,13 @@ typedef enum MetaClass {
 } MetaClass;
 
 typedef enum PrimaryType {
-    PT_Void, PT_Int8, PT_UInt8, PT_Int16, PT_UInt16, PT_Int32, PT_UInt32, PT_Int64, PT_UInt64,
-    PT_Char = PT_Int8, PT_UChar = PT_UInt8,
-    PT_Short = PT_Int16, PT_Ushort = PT_UInt16,
-    PT_Int = PT_Int64, PT_UInt = PT_UInt64,
-    PT_LongInt = PT_Int64, PT_ULongInt = PT_UInt64,
-    PT_LongLongInt = PT_Int64, PT_ULongLongInt = PT_UInt64,
-    PT_Float, PT_Double, PT_LongDouble = PT_Double
+	PT_Void, PT_Int8, PT_UInt8, PT_Int16, PT_UInt16, PT_Int32, PT_UInt32, PT_Int64, PT_UInt64,
+	PT_Char = PT_Int8, PT_UChar = PT_UInt8,
+	PT_Short = PT_Int16, PT_Ushort = PT_UInt16,
+	PT_Int = PT_Int64, PT_UInt = PT_UInt64,
+	PT_LongInt = PT_Int64, PT_ULongInt = PT_UInt64,
+	PT_LongLongInt = PT_Int64, PT_ULongLongInt = PT_UInt64,
+	PT_Float, PT_Double, PT_LongDouble = PT_Double
 } PrimaryType;
 
 struct Declaration {
@@ -98,9 +96,9 @@ struct Variant : public Declaration {
         members = new Map<const String, Member>(clazz.member_templates); // ?? *members = clazz.member_templates;
     }                                                                                                                                                                          
 
-    // TODO Distinguish Primary or Primary/Class Pointer
+	// TODO Distinguish Primary or Primary/Class Pointer
     Variant(const String& name, PrimaryType refered_data_type, uint8_t referDeep = 0, Class* clazz = nullptr)
-        : Declaration(name, nullptr, MT_Variant, MC_PrimaryType), refer_(nullptr), tag_(0) { // Void + Deep = 0 means not yet set.
+		: Declaration(name, nullptr, MT_Variant, MC_PrimaryType), refer_(nullptr), tag_(0) { // Void + Deep = 0 means not yet set.
         std::cout << "Instance variant name " << name << std::endl;
     }
 
@@ -136,7 +134,7 @@ public:
 
     bool assign(Variant& var) {
         // TODO not assign meta_class, ONLY Judge it the same:
-        meta_class = var.meta_class;
+		meta_class = var.meta_class;
         if (var.meta_class == MC_Pointer || var.meta_class == MC_Reference) {
             refer_ = var.refer_;
         } else {
@@ -158,13 +156,13 @@ public:
 
     bool refer(Variant& dest) {
         if (dest.meta_class != MC_Void) {
-            std::cout << "REFER_TAG for " << dest.name << " is " << dest.getRefTag() << std::endl;
+			std::cout << "REFER_TAG for " << dest.name << " is " << dest.getRefTag() << std::endl;
             meta_class = MC_Reference;
             refer_ = &dest;
             return true;
         } else {
-            std::cout << "ERROR_REFER source name is " << name << std::endl;
-        }
+			std::cout << "ERROR_REFER source name is " << name << std::endl;
+		}
         return false;
     }
 
@@ -225,20 +223,20 @@ struct Member : public Variant {
 
 Variant& Variant::member(const String& name) { // for class or pointer/reference of class
     if (refer_ && refer_->meta_class == MC_Class && refer_->members) {
-        std::cout << "RCLASS_MEMB:" << refer_->name << ">" << name << ", and this name is:" << this->name << std::endl;
+        LOGD << "RCLASS_MEMB:" << refer_->name << ">" << name << ", and this name is:" << this->name << std::endl;
         Map<const String, Member>::iterator it = refer_->members->find(name);
         if (it != refer_->members->end()) {
-            std::cout << "[TAG=" << it->second.getRefTag() << "[MC=" << it->second.meta_class << std::endl;
+			LOGD << "[TAG=" << it->second.getRefTag() << "[MC=" << it->second.meta_class << std::endl;
             return it->second;
         }
     } else if (meta_class == MC_Class && members) {
-        std::cout << "CLASS_MEM:" << this->name << ">" << name << std::endl;
+        LOGD << "CLASS_MEM:" << this->name << ">" << name << std::endl;
         Map<const String, Member>::iterator it = members->find(name);
         if (it != members->end()) {
             return it->second;
         }
     }
-    std::cout << "NO_CLASS_MEM:" << "?THIS=" << this->name << ",?REF@" << refer_  << "=" << refer_->name << ", >" << name << std::endl;
+    LOGD << "NO_CLASS_MEM:" << "?THIS=" << this->name << ",?REF@" << refer_  << "=" << refer_->name << ", >" << name << std::endl;
     return null_Variant;
 }
 
@@ -260,9 +258,9 @@ public:
     }
 
     Variant& invoke(Variant& a) {
-        std::cout << "input tag = " << a.getRefTag() << " name=" << a.name << ", refer_to=" << (a.refer_? a.refer_->name : "") << std::endl;
+        LOGI << "input tag = " << a.getRefTag() << " name=" << a.name << ", refer_to=" << (a.refer_? a.refer_->name : "") << std::endl;
         if (a.getRefTag()) {
-            std::cout << "polution source" << std::endl;
+            LOGE << "polution source" << std::endl;
         }
         return a;
     }
@@ -315,8 +313,10 @@ public:
     Array<Expression*> arguments;
 };
 
-int main()
+int main(int argc, char **argv)
 {
+	log_init(argv[0], stdout, kLogDebug);
+
     const char *source_rules[] = { "source" };
     const char *sink_rules[] = { "sink" };
 
@@ -422,7 +422,9 @@ int main()
 
     // Playground to check the source code model, manully setup one to check
 
-    std::cout << "S0" << std::endl;
+    LOG_D("S0.1begin\n");
+    std::cout << "S000" << std::endl;
+    LOG_D("S0.1end\n");
     Function sink("sink");
     Function source("source");
     Function foo("foo");
@@ -430,22 +432,22 @@ int main()
 
     // in main function statements:
     // A *a = new A();
-    std::cout << "S0.1" << std::endl;
+    LOG_D("S0.1");
     Class A("A"), B("B");
-    std::cout << "S0.2" << std::endl;
+    LOG_D("S0.2");
     A.setupClassMember("g", B);
-    std::cout << "S0.3" << std::endl;
+    LOG_D("S0.3");
     B.setupPointerMember("f", PT_Char); // char* f;
-    std::cout << "S.4" << std::endl;
+    LOG_D("S.4");
     Variant aa("aa", A);
-    std::cout << "S.5" << std::endl;
+    LOG_D("S.5");
     Variant a("a");     // Variant aa : A <-- a
-    std::cout << "S.6" << std::endl;
+    LOG_D("S.6");
     a.point(aa);
-    std::cout << "S.7" << std::endl;
+    LOG_D("S.7");
     // B &b = a->g;
     Variant b("b");             // aa.g <-- b
-    std::cout <<"S1" << std::endl;
+    LOGD << "S1" << std::endl;
     b.refer(aa.member("g"));    // b.assign(a->g);  // should refer to aa.g
 
     //sink.invoke(b.member("f"));
@@ -457,27 +459,28 @@ int main()
     z.point(aa);                // z.assign(a);		// should point to aa
     // B *x = &z->g;
     Variant x("x");
-    std::cout <<"S2" << std::endl;
+    LOGD << "S2" << std::endl;
     x.point(z.member("g"));
     // char *w = source();      // TO MARK zz.g.f tained
     Variant w("w", PT_Char, 1); 
     w.assign(source.invoke(w)); // TODO w not correct
     w.tag(1);					// mimic polution source
-    std::cout << "w.RefTag =" << w.getRefTag() << std::endl;
+    LOGD << "w.RefTag =" << w.getRefTag() << std::endl;
     // x->f = w;
-    std::cout <<"S3" << std::endl;
+    LOGD << "S3" << std::endl;
     x.member("f").assign(w); 
-    std::cout <<"S4" << std::endl;
-    std::cout << "f.RefTag =" << x.member("f").getRefTag() << ">>>   DONE" << std::endl;
+    LOGD << "S4" << std::endl;
+    LOGD << "f.RefTag =" << x.member("f").getRefTag() << ">>>   DONE" << std::endl;
 
     // sink(b.f)        // SINK for aa.g.f
-    std::cout <<"S5" << std::endl;
-    Variant rf("rf"); rf.refer(b.member("f")); b.member("f").tag(3);
-    std::cout << "now tag is " << b.member("f").getRefTag() << std::endl;
+    LOGD <<"S5" << std::endl;
+	Variant rf("rf"); rf.refer(b.member("f")); b.member("f").tag(3);
+	LOGD << "now tag is " << b.member("f").getRefTag() << endl;
     sink.invoke(b.member("f"));
     sink.invoke(rf);
-    aa.member("g").tag(2);
+	aa.member("g").tag(2);
     sink.invoke(b);
 
     return 0;
 }
+
