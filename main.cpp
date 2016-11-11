@@ -22,7 +22,7 @@ template <typename T1, typename T2>
 using Map = std::map<T1, T2>;
 
 typedef enum MetaType {
-    MT_Type, MT_Variant, MT_Function
+    MT_Type, MT_Variable, MT_Function
 } MetaType;
 
 typedef enum MetaClass {
@@ -51,7 +51,7 @@ struct Declaration {
     String name;
 
     Declaration(const String& name, Declaration *base_type, MetaType mt, MetaClass mc)
-        : name(name), base_type(base_type), meta_type(mt), meta_class(mc) {
+        : meta_type(mt), meta_class(mc), base_type(base_type), name(name) {
     }
 
     const String& getName() const {
@@ -68,7 +68,7 @@ class Function;
 
 class Class : public Declaration {
 public:
-    Map<const String, Member> member_templates; // template members (Variant) for enum & class
+    Map<const String, Member> member_templates; // template members (Variable) for enum & class
     Array<Function*> methods; // for enum & class
     Array<Declaration*> parents; // for class / struct include base
 
@@ -79,30 +79,31 @@ public:
     bool setupPointerMember(const String& memb_name, PrimaryType refered_data_type, uint8_t referDeep = 1, Class* clazz = nullptr, bool isClassMember = false);
 };
 
-struct Variant : public Declaration {
-    Variant *refer_; // if is a pointer or a refer
-    //Class *ologyClass; For an object Variant, use base_type as a Class.
+class Variable : public Declaration {
+public:
+    Variable *refer_; // if is a pointer or a refer
+    //Class *ologyClass; For an object Variable, use base_type as a Class.
 
     int tag_;
     //Map<const String, int> *tags; // class or struct
     Map<const String, Member> *members; // for enum & class
 
-    Variant(const String& name) : Declaration(name, nullptr, MT_Variant, MC_Void), refer_(nullptr), tag_(0) { // Void means not yet set.
+    Variable(const String& name) : Declaration(name, nullptr, MT_Variable, MC_Void), refer_(nullptr), tag_(0) { // Void means not yet set.
         std::cout << "Instance variant name " << name << std::endl;
     }
 
-    Variant(const String& name, Class& clazz) : Declaration(name, &clazz, MT_Variant, MC_Class), refer_(nullptr), tag_(0) { // a real object
+    Variable(const String& name, Class& clazz) : Declaration(name, &clazz, MT_Variable, MC_Class), refer_(nullptr), tag_(0) { // a real object
         std::cout << "Instance class.name = " << clazz.name << " memb_name " << name << std::endl;
         members = new Map<const String, Member>(clazz.member_templates); // ?? *members = clazz.member_templates;
     }                                                                                                                                                                          
 
 	// TODO Distinguish Primary or Primary/Class Pointer
-    Variant(const String& name, PrimaryType refered_data_type, uint8_t referDeep = 0, Class* clazz = nullptr)
-		: Declaration(name, nullptr, MT_Variant, MC_PrimaryType), refer_(nullptr), tag_(0) { // Void + Deep = 0 means not yet set.
+    Variable(const String& name, PrimaryType refered_data_type, uint8_t referDeep = 0, Class* clazz = nullptr)
+		: Declaration(name, nullptr, MT_Variable, MC_PrimaryType), refer_(nullptr), tag_(0) { // Void + Deep = 0 means not yet set.
         std::cout << "Instance variant name " << name << std::endl;
     }
 
-    Variant(const Variant& rhs) : Declaration(rhs.name, rhs.base_type, rhs.meta_type, rhs.meta_class) {
+    Variable(const Variable& rhs) : Declaration(rhs.name, rhs.base_type, rhs.meta_type, rhs.meta_class) {
         refer_ = rhs.refer_;
         tag_ = rhs.tag_;
         if (meta_class == MC_Class) {
@@ -118,21 +119,21 @@ private:
 
     //friend class Member;
 
-    //Variant() : Declaration("", nullptr, MT_Variant, MC_Void) {
+    //Variable() : Declaration("", nullptr, MT_Variable, MC_Void) {
     //}
 
-    //Variant(Variant* some) : Declaration("", nullptr, MT_Variant, MC_Void) { // Void
+    //Variable(Variable* some) : Declaration("", nullptr, MT_Variable, MC_Void) { // Void
     //}
 
 public:
 
-    static Variant null_Variant;
+    static Variable null_Variable;
 
-    const Variant* getRefer() const {
+    const Variable* getRefer() const {
         return refer_;
     }
 
-    bool assign(Variant& var) {
+    bool assign(Variable& var) {
         // TODO not assign meta_class, ONLY Judge it the same:
 		meta_class = var.meta_class;
         if (var.meta_class == MC_Pointer || var.meta_class == MC_Reference) {
@@ -144,7 +145,7 @@ public:
         return true;
     }
 
-    bool point(Variant& dest) {
+    bool point(Variable& dest) {
         meta_class = MC_Pointer;
         if (dest.meta_class != MC_Void) {
             refer_ = &dest;
@@ -154,7 +155,7 @@ public:
         return true;
     }
 
-    bool refer(Variant& dest) {
+    bool refer(Variable& dest) {
         if (dest.meta_class != MC_Void) {
 			std::cout << "REFER_TAG for " << dest.name << " is " << dest.getRefTag() << std::endl;
             meta_class = MC_Reference;
@@ -182,24 +183,25 @@ public:
         }
     }
 
-    Variant& member(const String& name); // for class
+    Variable& member(const String& name); // for class
 
     void init(Statement* stmt) {
     }
 };
 
-Variant Variant::null_Variant("");
+Variable Variable::null_Variable("");
 
-struct Member : public Variant {
+class Member : public Variable {
+public:
     Class* enclosure_type; // class or enum name
     bool isClassMember;
 
     Member(const String& name, Class& clazz, Class& enclosure_type, bool isClassMember = false)
-        : Variant(name, clazz), enclosure_type(&enclosure_type), isClassMember(isClassMember) {
+        : Variable(name, clazz), enclosure_type(&enclosure_type), isClassMember(isClassMember) {
     }
 
     Member(const String& name, PrimaryType refered_data_type, uint8_t referDeep, Class* clazz, Class& enclosure_type, bool isClassMember = false)
-        : Variant(name, refered_data_type, referDeep, clazz), enclosure_type(&enclosure_type), isClassMember(isClassMember) {
+        : Variable(name, refered_data_type, referDeep, clazz), enclosure_type(&enclosure_type), isClassMember(isClassMember) {
     }
 
 //    Member(const Member& rhs) = default;
@@ -221,7 +223,7 @@ struct Member : public Variant {
 //    Member& operator=(const Member&) = default;
 };
 
-Variant& Variant::member(const String& name) { // for class or pointer/reference of class
+Variable& Variable::member(const String& name) { // for class or pointer/reference of class
     if (refer_ && refer_->meta_class == MC_Class && refer_->members) {
         LOGD << "RCLASS_MEMB:" << refer_->name << ">" << name << ", and this name is:" << this->name << std::endl;
         Map<const String, Member>::iterator it = refer_->members->find(name);
@@ -237,7 +239,7 @@ Variant& Variant::member(const String& name) { // for class or pointer/reference
         }
     }
     LOGD << "NO_CLASS_MEM:" << "?THIS=" << this->name << ",?REF@" << refer_  << "=" << refer_->name << ", >" << name << std::endl;
-    return null_Variant;
+    return null_Variable;
 }
 
 class Statement {
@@ -251,13 +253,13 @@ public:
 class Function : public Declaration {
 public:
     Class *clazz;
-    Array<Variant> parameters; // for binding with Call(arguments)
+    Array<Variable> parameters; // for binding with Call(arguments)
     Array<Statement> stmts;
 
     Function(const String& name) : Declaration(name, nullptr, MT_Function, MC_Void) { // Void means not yet set.
     }
 
-    Variant& invoke(Variant& a) {
+    Variable& invoke(Variable& a) {
         LOGI << "input tag = " << a.getRefTag() << " name=" << a.name << ", refer_to=" << (a.refer_? a.refer_->name : "") << std::endl;
         if (a.getRefTag()) {
             LOGE << "polution source" << std::endl;
@@ -290,7 +292,7 @@ public:
 
 class Value : public Expression {
 public:
-    Variant *variant;
+    Variable *variant;
     String value;
 };
 
@@ -439,14 +441,14 @@ int main(int argc, char **argv)
     LOG_D("S0.3");
     B.setupPointerMember("f", PT_Char); // char* f;
     LOG_D("S.4");
-    Variant aa("aa", A);
+    Variable aa("aa", A);
     LOG_D("S.5");
-    Variant a("a");     // Variant aa : A <-- a
+    Variable a("a");     // Variable aa : A <-- a
     LOG_D("S.6");
     a.point(aa);
     LOG_D("S.7");
     // B &b = a->g;
-    Variant b("b");             // aa.g <-- b
+    Variable b("b");             // aa.g <-- b
     LOGD << "S1" << std::endl;
     b.refer(aa.member("g"));    // b.assign(a->g);  // should refer to aa.g
 
@@ -455,14 +457,14 @@ int main(int argc, char **argv)
     // foo(a)                   // MARK aa.g.f tained
     foo.invoke(a);
     // in void foo(A *z) function statements:
-    Variant z("z");
+    Variable z("z");
     z.point(aa);                // z.assign(a);		// should point to aa
     // B *x = &z->g;
-    Variant x("x");
+    Variable x("x");
     LOGD << "S2" << std::endl;
     x.point(z.member("g"));
     // char *w = source();      // TO MARK zz.g.f tained
-    Variant w("w", PT_Char, 1); 
+    Variable w("w", PT_Char, 1); 
     w.assign(source.invoke(w)); // TODO w not correct
     w.tag(1);					// mimic polution source
     LOGD << "w.RefTag =" << w.getRefTag() << std::endl;
@@ -474,11 +476,14 @@ int main(int argc, char **argv)
 
     // sink(b.f)        // SINK for aa.g.f
     LOGD <<"S5" << std::endl;
-	Variant rf("rf"); rf.refer(b.member("f")); b.member("f").tag(3);
+	Variable rf("rf"); rf.refer(b.member("f")); b.member("f").tag(3);
 	LOGD << "now tag is " << b.member("f").getRefTag() << endl;
+	LOGD << "Invoke1:" << endl;
     sink.invoke(b.member("f"));
+	LOGD << "Invoke2:" << endl;
     sink.invoke(rf);
 	aa.member("g").tag(2);
+	LOGD << "Invoke3:" << endl;
     sink.invoke(b);
 
     return 0;

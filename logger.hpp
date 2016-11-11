@@ -13,6 +13,14 @@ using std::endl;
 
 typedef std::ostream& (*ostream_manipulator)(std::ostream&);
 
+struct LogLocation {
+	LogLocation(const String& file, int line)
+		: file(file), line(line){
+	}
+	String file;
+	int line;
+};
+
 class Logger {
 public:
 	static Logger& getErrorLogger() {
@@ -77,6 +85,16 @@ inline Logger& operator<<(Logger &logger, const T &data) {
 	return logger;
 }
 
+template <>
+inline Logger& operator<< <LogLocation>(Logger &logger, const LogLocation &data) {
+	if (!logger.printedPrefix_) {
+		logger.printedPrefix_ = true;
+		logger.outStream_ << logger.prefix_;
+	}
+	logger.outStream_ << data.file << ":" << data.line << ": ";
+	return logger;
+}
+
 //extern std::ostream& std::endl(std::ostream&);
 
 Logger& operator<<(Logger &logger, ostream_manipulator manip)
@@ -103,8 +121,8 @@ NoLogger& operator<<(NoLogger &logger, ostream_manipulator /*manip*/)
 }
 
 #define NO_LOG NoLogger::getLog()
-
-#define LOGE Logger::getErrorLogger()
-#define LOGI Logger::getInfoLogger()
-#define LOGD Logger::getDebugLogger()
+#define LOC LogLocation(__FILE__, __LINE__)
+#define LOGE Logger::getErrorLogger() << LOC
+#define LOGI Logger::getInfoLogger() << LOC
+#define LOGD Logger::getDebugLogger() << LOC
 
