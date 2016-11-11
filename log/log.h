@@ -18,15 +18,15 @@ typedef enum LogLevel {
 	kLogFailed = 0, kLogError, kLogInfo, kLogVerbose, kLogDebug,
 } LogLevel;
 
-#define LOG_F(fmt, ...)			LOG(kLogFailed,		CC_RED "F: " fmt "\n" CC_RES, ##__VA_ARGS__)
-#define LOG_E(fmt, ...)			LOG(kLogError,		CC_RED "E: " fmt "\n" CC_RES, ##__VA_ARGS__)
-#define LOG_I(fmt, ...)			LOG(kLogInfo,		CC_035 "I: " fmt "\n" CC_RES, ##__VA_ARGS__)
-#define LOG_V(fmt, ...)			LOG(kLogVerbose,	CC_036 "V: " fmt "\n" CC_RES, ##__VA_ARGS__)
-#define LOG_D(fmt, ...)			LOGD_(kLogDebug,	CC_YEL "D: " fmt "\n" CC_RES, ##__VA_ARGS__)
+#define LOG_F(fmt, ...)			LOG(kLogFailed,		CC_RED "F: %s:%d: " fmt "\n" CC_RES, __FILE__, __LINE__, ##__VA_ARGS__)
+#define LOG_E(fmt, ...)			LOG(kLogError,		CC_RED "E: %s:%d: " fmt "\n" CC_RES, __FILE__, __LINE__, ##__VA_ARGS__)
+#define LOG_I(fmt, ...)			LOG(kLogInfo,		CC_035 "I: %s:%d: " fmt "\n" CC_RES, __FILE__, __LINE__, ##__VA_ARGS__)
+#define LOG_V(fmt, ...)			LOG(kLogVerbose,	CC_036 "V: %s:%d: " fmt "\n" CC_RES, __FILE__, __LINE__, ##__VA_ARGS__)
+#define LOG_D(fmt, ...)			LOGD_(kLogDebug,	CC_YEL "D: %s:%d: " fmt "\n" CC_RES, __FILE__, __LINE__, ##__VA_ARGS__)
 #define LOG_F_SE(fmt, ...)		perror("FailException"); \
-								LOG(kLogFailed,		CC_RED "F: %s:%d:" fmt "\n" CC_RES, __FILE__, __LINE__, ##__VA_ARGS__)
+								LOG(kLogFailed,		CC_RED "F: %s:%d: " fmt "\n" CC_RES, __FILE__, __LINE__, ##__VA_ARGS__)
 #define LOG_E_SE(fmt, ...)		perror("Exception"); \
-								LOG(kLogError,		CC_RED "E: %s:%d:" fmt "\n" CC_RES, __FILE__, __LINE__, ##__VA_ARGS__)
+								LOG(kLogError,		CC_RED "E: %s:%d: " fmt "\n" CC_RES, __FILE__, __LINE__, ##__VA_ARGS__)
 
 #define LOG(level, fmt, ...)						\
 	do {											\
