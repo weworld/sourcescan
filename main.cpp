@@ -315,6 +315,52 @@ public:
     Array<Expression*> arguments;
 };
 
+char* parseStatement(char* p)
+{
+	return nullptr;
+}
+
+char* parseFunction(char* p)
+{
+	char c;
+	int num2 = 0;
+	while ((c = *p++) != '\0') {
+		switch (c) {
+			case ' ': // skip spaces
+			case '\t':
+			case '\n':
+			case '\r':
+				//break;
+				continue;
+			case '{': // first expect
+				LOGE << "Get expect " << c << ",nextc=" << *p << std::endl;
+				++num2;
+				break;
+			case '}':
+				--num2;
+				if (!num2) { // END
+					//break;
+					return p;
+				} else {
+					std::cout << "STATMENT_C@" << num2 << std::endl;
+				}
+				break;
+			case ';':
+				if (num2 == 1) {
+					std::cout << "STATMENT_S@" << num2 << std::endl;
+				}
+				break;
+			default:
+				if (num2 == 0) {
+					LOGE << "STOP at " << c << ",nextc=" << *p << std::endl;
+					return nullptr;
+				}
+				break;
+		}
+	}
+	return p;
+}
+
 int main(int argc, char **argv)
 {
 	log_init(argv[0], stdout, kLogDebug);
@@ -351,7 +397,7 @@ int main(int argc, char **argv)
     String last_token, func_token, class_token;
     char token[512] = { 0 };
     char *t = token;
-    size_t num = 0, num2 = 0;
+    size_t num = 0; //, num2 = 0;
     while ((c = *p++) != '\0') {
         if (isalnum(c)) {
             *t++ = c;
@@ -365,56 +411,53 @@ int main(int argc, char **argv)
         } else {
         }
         //std::cout << "SEP:" << c << std::endl;
-        switch (c) {
-        case '(':
-            func_token = last_token;
-            num = 1;
-            num2 = 0;
-            while ((c = *p++) != '\0') {
-                if (c == '(') {
-                    ++num;
-                } else if (c == ')') {
-                    --num;
-                } else if (!num) {
-                    if (c == '{') {
-                        ++num2;
-                    } else if (c == '}') {
-                        --num2;
-                        if (!num2) {
-                            std::cout << "FUNCTION:" << func_token << std::endl;
-                            break;
-                        } else {
-                            std::cout << "STATMENT_C@" << num2 << std::endl;
-                        }
-                    } else if (c == ';' && num2 == 1) {
-                        std::cout << "STATMENT_S@" << num2 << std::endl;
-                    }
-                }
-            }
-            break;
-        case '{':
-            class_token = last_token;
-            //std::cout << "MAYCLASS:" << class_token << std::endl;
-            num = 1;
-            while ((c = *p++) != '\0') {
-                if (c == '{')
-                    ++num;
-                else if (c == '}') {
-                    --num;
-                    if (!num) {
-                        std::cout << "CLASS:" << class_token << std::endl;
-                        break;
-                    } else {
-                        std::cout << "CLASS_FUNCTION_OR_STATMENT_C@" << num << std::endl;
-                    }
-                } else if (c == ';' && num == 1) {
-                    std::cout << "CLASS_DECARATION@" << num << std::endl;
-                }
-            }
-            break;
-        default:
-            break;
-        }
+		switch (c) {
+			case '(': // Function Parameters Begin
+				func_token = last_token;
+				num = 1;
+				//num2 = 0;
+				while ((c = *p++) != '\0') {
+					if (c == '(') { // Begin parentensis in params list
+						++num;
+					} else if (c == ')') { // End parentensis in params list, OR Function Parameters End.
+						--num;
+					} else if (!num) { // Body
+						LOGE << "Try Parse function " << func_token  << std::endl;
+						char* q = parseFunction(p - 1);
+						if (q == nullptr) {
+							LOGE << "Break for parse error! position at: TODO"  << std::endl;
+							break;
+						} else {
+							p = q;
+							std::cout << "FUNCTION:" << func_token << std::endl;
+							break; // End function, continue Outter-Loop
+						}
+					}
+				}
+				break;
+			case '{':
+				class_token = last_token;
+				//std::cout << "MAYCLASS:" << class_token << std::endl;
+				num = 1;
+				while ((c = *p++) != '\0') {
+					if (c == '{')
+						++num;
+					else if (c == '}') {
+						--num;
+						if (!num) {
+							std::cout << "CLASS:" << class_token << std::endl;
+							break; // End class, continue Outter-Loop
+						} else {
+							std::cout << "CLASS_FUNCTION_OR_STATMENT_C@" << num << std::endl;
+						}
+					} else if (c == ';' && num == 1) {
+						std::cout << "CLASS_DECARATION@" << num << std::endl;
+					}
+				}
+				break;
+			default:
+				break;
+		}
         t = token;
         //}
         if (c == '\0')
