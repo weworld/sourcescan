@@ -30,13 +30,13 @@ typedef enum MetaClass {
 } MetaClass;
 
 typedef enum PrimaryType {
-	PT_Void, PT_Int8, PT_UInt8, PT_Int16, PT_UInt16, PT_Int32, PT_UInt32, PT_Int64, PT_UInt64,
-	PT_Char = PT_Int8, PT_UChar = PT_UInt8,
-	PT_Short = PT_Int16, PT_Ushort = PT_UInt16,
-	PT_Int = PT_Int64, PT_UInt = PT_UInt64,
-	PT_LongInt = PT_Int64, PT_ULongInt = PT_UInt64,
-	PT_LongLongInt = PT_Int64, PT_ULongLongInt = PT_UInt64,
-	PT_Float, PT_Double, PT_LongDouble = PT_Double
+    PT_Void, PT_Int8, PT_UInt8, PT_Int16, PT_UInt16, PT_Int32, PT_UInt32, PT_Int64, PT_UInt64,
+    PT_Char = PT_Int8, PT_UChar = PT_UInt8,
+    PT_Short = PT_Int16, PT_Ushort = PT_UInt16,
+    PT_Int = PT_Int64, PT_UInt = PT_UInt64,
+    PT_LongInt = PT_Int64, PT_ULongInt = PT_UInt64,
+    PT_LongLongInt = PT_Int64, PT_ULongLongInt = PT_UInt64,
+    PT_Float, PT_Double, PT_LongDouble = PT_Double
 } PrimaryType;
 
 struct Declaration {
@@ -97,9 +97,9 @@ public:
         members = new Map<const String, Member>(clazz.member_templates); // ?? *members = clazz.member_templates;
     }                                                                                                                                                                          
 
-	// TODO Distinguish Primary or Primary/Class Pointer
+    // TODO Distinguish Primary or Primary/Class Pointer
     Variable(const String& name, PrimaryType refered_data_type, uint8_t referDeep = 0, Class* clazz = nullptr)
-		: Declaration(name, nullptr, MT_Variable, MC_PrimaryType), refer_(nullptr), tag_(0) { // Void + Deep = 0 means not yet set.
+        : Declaration(name, nullptr, MT_Variable, MC_PrimaryType), refer_(nullptr), tag_(0) { // Void + Deep = 0 means not yet set.
         std::cout << "Instance variant name " << name << std::endl;
     }
 
@@ -135,7 +135,7 @@ public:
 
     bool assign(Variable& var) {
         // TODO not assign meta_class, ONLY Judge it the same:
-		meta_class = var.meta_class;
+        meta_class = var.meta_class;
         if (var.meta_class == MC_Pointer || var.meta_class == MC_Reference) {
             refer_ = var.refer_;
         } else {
@@ -157,13 +157,13 @@ public:
 
     bool refer(Variable& dest) {
         if (dest.meta_class != MC_Void) {
-			std::cout << "REFER_TAG for " << dest.name << " is " << dest.getRefTag() << std::endl;
+            std::cout << "REFER_TAG for " << dest.name << " is " << dest.getRefTag() << std::endl;
             meta_class = MC_Reference;
             refer_ = &dest;
             return true;
         } else {
-			std::cout << "ERROR_REFER source name is " << name << std::endl;
-		}
+            std::cout << "ERROR_REFER source name is " << name << std::endl;
+        }
         return false;
     }
 
@@ -228,7 +228,7 @@ Variable& Variable::member(const String& name) { // for class or pointer/referen
         LOGD << "RCLASS_MEMB:" << refer_->name << ">" << name << ", and this name is:" << this->name << std::endl;
         Map<const String, Member>::iterator it = refer_->members->find(name);
         if (it != refer_->members->end()) {
-			LOGD << "[TAG=" << it->second.getRefTag() << "[MC=" << it->second.meta_class << std::endl;
+            LOGD << "[TAG=" << it->second.getRefTag() << "[MC=" << it->second.meta_class << std::endl;
             return it->second;
         }
     } else if (meta_class == MC_Class && members) {
@@ -317,53 +317,53 @@ public:
 
 char* parseStatement(char* p)
 {
-	return nullptr;
+    return nullptr;
 }
 
 char* parseFunction(char* p)
 {
-	char c;
-	int num2 = 0;
-	while ((c = *p++) != '\0') {
-		switch (c) {
-			case ' ': // skip spaces
-			case '\t':
-			case '\n':
-			case '\r':
-				//break;
-				continue;
-			case '{': // first expect
-				LOGE << "Get expect " << c << ",nextc=" << *p << std::endl;
-				++num2;
-				break;
-			case '}':
-				--num2;
-				if (!num2) { // END
-					//break;
-					return p;
-				} else {
-					std::cout << "STATMENT_C@" << num2 << std::endl;
-				}
-				break;
-			case ';':
-				if (num2 == 1) {
-					std::cout << "STATMENT_S@" << num2 << std::endl;
-				}
-				break;
-			default:
-				if (num2 == 0) {
-					LOGE << "STOP at " << c << ",nextc=" << *p << std::endl;
-					return nullptr;
-				}
-				break;
-		}
-	}
-	return p;
+    char c;
+    int num2 = 0;
+    while ((c = *p++) != '\0') {
+        switch (c) {
+            case ' ': // skip spaces
+            case '\t':
+            case '\n':
+            case '\r':
+                //break;
+                continue;
+            case '{': // first expect
+                LOGE << "Get expect " << c << ",nextc=" << *p << std::endl;
+                ++num2;
+                break;
+            case '}':
+                --num2;
+                if (!num2) { // END
+                    //break;
+                    return p;
+                } else {
+                    std::cout << "STATMENT_C@" << num2 << std::endl;
+                }
+                break;
+            case ';':
+                if (num2 == 1) {
+                    std::cout << "STATMENT_S@" << num2 << std::endl;
+                }
+                break;
+            default:
+                if (num2 == 0) {
+                    LOGE << "STOP at " << c << ",nextc=" << *p << std::endl;
+                    return nullptr;
+                }
+                break;
+        }
+    }
+    return p;
 }
 
 int main(int argc, char **argv)
 {
-	log_init(argv[0], stdout, kLogDebug);
+    log_init(argv[0], stdout, kLogDebug);
 
     const char *source_rules[] = { "source" };
     const char *sink_rules[] = { "sink" };
@@ -411,53 +411,53 @@ int main(int argc, char **argv)
         } else {
         }
         //std::cout << "SEP:" << c << std::endl;
-		switch (c) {
-			case '(': // Function Parameters Begin
-				func_token = last_token;
-				num = 1;
-				//num2 = 0;
-				while ((c = *p++) != '\0') {
-					if (c == '(') { // Begin parentensis in params list
-						++num;
-					} else if (c == ')') { // End parentensis in params list, OR Function Parameters End.
-						--num;
-					} else if (!num) { // Body
-						LOGE << "Try Parse function " << func_token  << std::endl;
-						char* q = parseFunction(p - 1);
-						if (q == nullptr) {
-							LOGE << "Break for parse error! position at: TODO"  << std::endl;
-							break;
-						} else {
-							p = q;
-							std::cout << "FUNCTION:" << func_token << std::endl;
-							break; // End function, continue Outter-Loop
-						}
-					}
-				}
-				break;
-			case '{':
-				class_token = last_token;
-				//std::cout << "MAYCLASS:" << class_token << std::endl;
-				num = 1;
-				while ((c = *p++) != '\0') {
-					if (c == '{')
-						++num;
-					else if (c == '}') {
-						--num;
-						if (!num) {
-							std::cout << "CLASS:" << class_token << std::endl;
-							break; // End class, continue Outter-Loop
-						} else {
-							std::cout << "CLASS_FUNCTION_OR_STATMENT_C@" << num << std::endl;
-						}
-					} else if (c == ';' && num == 1) {
-						std::cout << "CLASS_DECARATION@" << num << std::endl;
-					}
-				}
-				break;
-			default:
-				break;
-		}
+        switch (c) {
+            case '(': // Function Parameters Begin
+                func_token = last_token;
+                num = 1;
+                //num2 = 0;
+                while ((c = *p++) != '\0') {
+                    if (c == '(') { // Begin parentensis in params list
+                        ++num;
+                    } else if (c == ')') { // End parentensis in params list, OR Function Parameters End.
+                        --num;
+                    } else if (!num) { // Body
+                        LOGE << "Try Parse function " << func_token  << std::endl;
+                        char* q = parseFunction(p - 1);
+                        if (q == nullptr) {
+                            LOGE << "Break for parse error! position at: TODO"  << std::endl;
+                            break;
+                        } else {
+                            p = q;
+                            std::cout << "FUNCTION:" << func_token << std::endl;
+                            break; // End function, continue Outter-Loop
+                        }
+                    }
+                }
+                break;
+            case '{':
+                class_token = last_token;
+                //std::cout << "MAYCLASS:" << class_token << std::endl;
+                num = 1;
+                while ((c = *p++) != '\0') {
+                    if (c == '{')
+                        ++num;
+                    else if (c == '}') {
+                        --num;
+                        if (!num) {
+                            std::cout << "CLASS:" << class_token << std::endl;
+                            break; // End class, continue Outter-Loop
+                        } else {
+                            std::cout << "CLASS_FUNCTION_OR_STATMENT_C@" << num << std::endl;
+                        }
+                    } else if (c == ';' && num == 1) {
+                        std::cout << "CLASS_DECARATION@" << num << std::endl;
+                    }
+                }
+                break;
+            default:
+                break;
+        }
         t = token;
         //}
         if (c == '\0')
@@ -519,16 +519,15 @@ int main(int argc, char **argv)
 
     // sink(b.f)        // SINK for aa.g.f
     LOGD <<"S5" << std::endl;
-	Variable rf("rf"); rf.refer(b.member("f")); b.member("f").tag(3);
-	LOGD << "now tag is " << b.member("f").getRefTag() << endl;
-	LOGD << "Invoke1:" << endl;
+    Variable rf("rf"); rf.refer(b.member("f")); b.member("f").tag(3);
+    LOGD << "now tag is " << b.member("f").getRefTag() << endl;
+    LOGD << "Invoke1:" << endl;
     sink.invoke(b.member("f"));
-	LOGD << "Invoke2:" << endl;
+    LOGD << "Invoke2:" << endl;
     sink.invoke(rf);
-	aa.member("g").tag(2);
-	LOGD << "Invoke3:" << endl;
+    aa.member("g").tag(2);
+    LOGD << "Invoke3:" << endl;
     sink.invoke(b);
 
     return 0;
 }
-
