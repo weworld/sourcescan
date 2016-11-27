@@ -43,6 +43,11 @@ public:
 		return log;
 	}
 
+	static Logger& getDebug2Logger() {
+		static Logger log(kLogDebug, std::cerr, "");
+		return log;
+	}
+
 protected:
 	Logger(LogLevel logLevel, std::ostream &outStream, const String& prefix)
 		: logLevel_(logLevel), outStream_(outStream), printedPrefix_(false), prefix_(prefix) {
@@ -125,4 +130,4 @@ NoLogger& operator<<(NoLogger &logger, ostream_manipulator /*manip*/)
 #define LOGE Logger::getErrorLogger() << LOC
 #define LOGI Logger::getInfoLogger() << LOC
 #define LOGD Logger::getDebugLogger() << LOC
-
+#define LOGD2 Logger::getDebug2Logger()
