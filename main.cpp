@@ -631,6 +631,64 @@ int main(int argc, char **argv)
 	LOGD << "Invoke3:" << endl;
     sink.invoke(b);
 
+
+            // Calls
+            bool compStmtTok = false;
+            if (c.typ == TK_IF || c.typ == TK_WHILE || c.typ == TK_FOR || c.typ == TK_SWITCH) {
+                compStmtTok = true;
+            }
+            if (parenteDepth == 0 && n && n->typ == TK_O_LPARENT && !(compStmtTok ||
+                c.typ >= TK_O_ASSIGN || c.typ == TK_SINGLELINE_COMMENT ||
+                c.typ == TK_MULTILINES_COMMENT)) {
+                head = &c;
+                printfToken(c);
+                bool suffix = false;
+                // if (braceDepth > 0) {
+                if (isTokStr(c, "strncpy_s") ||
+                    isTokStr(c, "memcpy_s") // ||
+                    // isTokStr(c, "printfToken") ||
+                    // isTokStr(c, "push_back") ||
+                    // isTokStr(c, "main")
+                ) {
+                    printf("$\t#unsafe");
+                    suffix = true;
+                    ti = ts+2;
+                    std::string elem, tmp; 
+                    int depth = 0;
+                    while (ti < te) {
+                        Token &tok = tokens[ti];
+                        if (depth == 0 && (tok.typ == TK_SEMICOLUMN || tok.typ == TK_O_COMMA || tok.typ == TK_O_RPARENT)) {
+                            printf(":%s", elem.c_str());
+                            if (tok.typ == TK_O_LPARENT) {
+                                break;
+                            }
+                            elem.clear();
+                        } else {
+                            elem += getTokenStr(tok);
+                        }
+                        if (tok.typ == TK_O_LPARENT) {
+                            ++depth;
+                        } else if (tok.typ == TK_O_RPARENT) {
+                            --depth;
+                        }
+                        ++ti;
+                    }
+                    printf("\n");
+                }
+                // }
+                if (!suffix) {
+                    printf("$\n");
+                }
+            }
+
+            // Function declarations
+            if (n  && braceDepth == 0 &&
+                n->typ == TK_LBRACE && c.typ == TK_O_RPARENT) {  // && stmtDepth == -1
+                stmtDepth = 0;
+                printf("\t@\n");
+            }
+
+
     return 0;
 }
 
