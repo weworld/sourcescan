@@ -688,7 +688,105 @@ int main(int argc, char **argv)
                 printf("\t@\n");
             }
 
+	
+	
+            // Function declarations
+            //*
+            if (n && braceDepth == 0) {  // && stmtDepth == -1
+                if (n->typ == TK_O_LPARENT) {
+                    bool vuln = false;
+                    std::vector<std::pair<std::string, std::string>> params;
+                    parseFuncParams(tokens, ts+2, te, params);
+                    for (const auto& param : params) {
+                        printf("\t###(%s :%s -- %s)\n", param.first.c_str(), param.second.c_str(), file);
+                    }
+                } else if (n->typ == TK_LBRACE && c.typ == TK_O_RPARENT) {
+                    stmtDepth = 0;
+                    printf("@");
+                    printfToken(*head);
+                    printf("\n");
+                }
+            }
+            //*/
+
+            // Statements
+            Node * stmtNode;
+            if (compStmtTok) {
+                stmtNode = new Node(&c, getTokenStr(c), braceDepth);
+                if (stmtNodes != nullptr) {
+                    stmtNode->setParent(stmtNodes);
+                } else {
+                    stmtNode->setParent(nullptr);
+                }
+                stmtNodes = stmtNode;
+            } else if (stmtNodes && braceDepth == stmtNodes->getBraceDepth() && (c.typ == TK_SEMICOLUMN || last->typ == TK_RBRACE)) {
+                stmtNode = stmtNodes;
+                stmtNodes = stmtNode->getParent();
+                delete stmtNode;
+            }
+            // Statements match
+            if (stmtNodes) {
+                if (stmtNodes->Tok().typ == TK_WHILE) {
+                    if (n && n->typ == TK_O_INC) {
+                        printf("\t#unsafe Out-Of-Range.\n");
+                    }
+                }
+            }
 
     return 0;
 }
 
+
+void parseFuncParams(const std::vector<Token>& tokens, size_t ti, size_t te, std::vector<std::pair<std::string, std::string>>& params) {
+    std::pair<std::string, std::string> elem;
+    std::string tmp; 
+    params.clear();
+    int depth = 0;
+    while (ti < te) {
+        const Token &tok = tokens[ti];
+        const Token *nextTok = nullptr;
+        if (ti+1 < te) {
+            nextTok = &tokens[ti+1];
+        }
+        if (depth == 0 && nextTok && (/*nextTok->typ == TK_SEMICOLUMN ||*/ nextTok->typ == TK_O_COMMA || nextTok->typ == TK_O_RPARENT)) {
+            //printf(":%s", elem.c_str());
+            if (tok.typ == TK_O_RBRACKET) {
+                if (!tmp.empty())
+                    tmp += " ";
+                tmp += getTokenStr(tok);
+                elem.first = tmp;
+                elem.second = " ";
+            } else {
+                elem.first = tmp;
+                elem.second = getTokenStr(tok);
+            }
+            params.push_back(elem);
+            tmp.clear();
+            if (nextTok->typ == TK_O_RPARENT) {
+                break;
+            }
+        } else if (tok.typ != TK_O_COMMA) {
+            if (!tmp.empty())
+                tmp += " ";
+            tmp += getTokenStr(tok);
+            // if (tok.typ == TK_SIZEOF && nextTok && (nextTok->typ == TK_UNKOWN || nextTok->typ == TK_SYMBOL)) {
+            //     elem += " ";
+            // }
+        }
+        if (tok.typ == TK_O_LPARENT) {
+            ++depth;
+        } else if (tok.typ == TK_O_RPARENT) {
+            --depth;
+        }
+        ++ti;
+    }
+}
+
+Token *last = NULL;
+Token *head = NULL;
+bool lastCompStmtTok = false;
+
+
+            last = &c;
+            lastCompStmtTok = compStmtTok;
+            ++ts;
