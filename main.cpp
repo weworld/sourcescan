@@ -681,6 +681,36 @@ int main(int argc, char **argv)
                 }
             }
 
+	            // Members declarations / Variables
+            if (n && n->typ == TK_O_LBRACKET && c.typ == TK_UNKOWN && (last->typ < TK_SEMICOLUMN || last->typ == TK_O_MUL)) {
+                Token *n2 = NULL;
+                if (ts+2 < te) {
+                    n2 = &tokens[ts+2];
+                }
+                if (n2) {
+                    std::string bufName = getTokenStr(c);
+                    std::string bufSizeStr = getTokenStr(*n2);
+                    // int bufSize = atoi(bufSizeStr.c_str());
+                    // printf("\t^%d,%d ", last->typ, bufSize);
+                    // printfToken(c);
+                    // printf("\n");
+                    g_cbSizeMap[bufName] = bufSizeStr;
+                }
+            }
+
+            // Calls
+            bool compStmtTok = false;
+            if (c.typ == TK_IF || c.typ == TK_WHILE || c.typ == TK_FOR || c.typ == TK_SWITCH) {
+                compStmtTok = true;
+            }
+            if (parenteDepth == 0 && n && n->typ == TK_O_LPARENT && !(compStmtTok ||
+                c.typ >= TK_O_ASSIGN || c.typ == TK_SINGLELINE_COMMENT ||
+                c.typ == TK_MULTILINES_COMMENT)) {
+                head = &c;
+                // printfToken(c);
+                analyzeCalls(tokens, ts, te, c, file);
+            }
+	
             // Function declarations
             if (n  && braceDepth == 0 &&
                 n->typ == TK_LBRACE && c.typ == TK_O_RPARENT) {  // && stmtDepth == -1
@@ -787,6 +817,96 @@ Token *head = NULL;
 bool lastCompStmtTok = false;
 
 
+
+
+        lineBuf.append(1, '\n');
+        lines.append(lineBuf);
+        line = lineBuf.c_str();
+        if (lineCountBase == (size_t)(-1)) {
+            lineCountBase = lineCount;
+        }
+        if (!hasStatementEnd(line, lineBuf.size(), inMacroDef, &inMacroDef)) {
+            continue;
+        } else { // get a whole statement
+        }
+        s = e;
+        line = lines.c_str()+s;
+        parseLine(line, tokens, lineCountBase);
+        e = lines.size();
+
+        ts = te;
+
+
             last = &c;
             lastCompStmtTok = compStmtTok;
             ++ts;
+        }
+
+        lineCountBase = (size_t)(-1);
+
+
+
+
+
+bool hasStatementEnd(const char *line, size_t len, bool inMacroDef, bool* pInMacroDef) {
+    if (line && len > 0) {
+        char c = line[0];
+        const char *end = &line[len];
+        // if (pInMacroDef) {
+        if (c == '#') {
+            // *pInMacroDef = true;
+            inMacroDef = true;
+        } else if (len > 1) {
+            const char* p = &line[1];
+            c = *p;
+            while (p < end && (c == ' ' || c == '\t')) {
+                ++p;
+                c = *p;
+            }
+            if (p < end && (c == '#'))
+                inMacroDef = true;
+        }
+        // }
+
+        const char* p = end - 1;
+        c = *p;
+        while (p > line && (c == ' ' || c == '\t' || c == '\n' || c == '\r')) {
+            --p;
+            c = *p;
+        }
+        if (p >= line) {
+            if (!inMacroDef) {
+                if (c == ';' || c == '}' || c == '{')
+                    return true;
+            } else {
+                if (c == '\\') {
+                    if (pInMacroDef) {
+                        *pInMacroDef = true;
+                    }
+                    return false;
+                } else {
+                    if (pInMacroDef) {
+                        *pInMacroDef = false;
+                    }
+                    return true;
+                }
+            }
+        }
+        /*
+        {
+            int i = strspn(line, " \t");
+            if (i >= 0 && i < len && line[i] == '#') {
+                if (pInMacroDef) {
+                    *pInMacroDef = true;
+                }
+                return true;
+            }
+            if (strpbrk(line, ";{}")) {
+                return true;
+            }
+        }*/
+    }
+    return false;
+}
+
+///////////// Trim utility
