@@ -766,7 +766,36 @@ int main(int argc, char **argv)
     return 0;
 }
 
+// AnaC
+        if (args.size() == 4) {
+            std::string arg1 = args[1];
+            std::string bufName;
+            size_t pos;
+            if ((pos = arg1.find("sizeof")) == 0) {
+                size_t nameLen = arg1.size()-6;
+                size_t nameBeg = pos+6;
+                if (arg1[pos+6] == '(') {
+                    nameLen -= 2;
+                    nameBeg += 1;
+                }
+                bufName = arg1.substr(nameBeg, nameLen);
+                trim(bufName);
+                if (bufName != args[0]) {
+                    vuln = true;
+                }
+            } else {
+                std::string arg0 = args[0];
+                auto it = g_cbSizeMap.find(arg0);
+                if (it != g_cbSizeMap.end()) {
+                    if (it->second != arg1) {
+                        vuln = true;
+                    }
+                }
+            }
+        }
 
+
+// parseF
             if (c.typ == TK_O_PLUS && n && n->typ == TK_UNKOWN && last && last->typ == TK_UNKOWN) { // MP. bufferName + intVariable
                 bool vuln = false;
                 auto end = g_cbSizeMap.end();
