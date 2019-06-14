@@ -767,146 +767,67 @@ int main(int argc, char **argv)
 }
 
 
-void parseFuncParams(const std::vector<Token>& tokens, size_t ti, size_t te, std::vector<std::pair<std::string, std::string>>& params) {
-    std::pair<std::string, std::string> elem;
-    std::string tmp; 
-    params.clear();
-    int depth = 0;
-    while (ti < te) {
-        const Token &tok = tokens[ti];
-        const Token *nextTok = nullptr;
-        if (ti+1 < te) {
-            nextTok = &tokens[ti+1];
-        }
-        if (depth == 0 && nextTok && (/*nextTok->typ == TK_SEMICOLUMN ||*/ nextTok->typ == TK_O_COMMA || nextTok->typ == TK_O_RPARENT)) {
-            //printf(":%s", elem.c_str());
-            if (tok.typ == TK_O_RBRACKET) {
-                if (!tmp.empty())
-                    tmp += " ";
-                tmp += getTokenStr(tok);
-                elem.first = tmp;
-                elem.second = " ";
-            } else {
-                elem.first = tmp;
-                elem.second = getTokenStr(tok);
-            }
-            params.push_back(elem);
-            tmp.clear();
-            if (nextTok->typ == TK_O_RPARENT) {
-                break;
-            }
-        } else if (tok.typ != TK_O_COMMA) {
-            if (!tmp.empty())
-                tmp += " ";
-            tmp += getTokenStr(tok);
-            // if (tok.typ == TK_SIZEOF && nextTok && (nextTok->typ == TK_UNKOWN || nextTok->typ == TK_SYMBOL)) {
-            //     elem += " ";
-            // }
-        }
-        if (tok.typ == TK_O_LPARENT) {
-            ++depth;
-        } else if (tok.typ == TK_O_RPARENT) {
-            --depth;
-        }
-        ++ti;
-    }
-}
-
-Token *last = NULL;
-Token *head = NULL;
-bool lastCompStmtTok = false;
-
-
-
-
-        lineBuf.append(1, '\n');
-        lines.append(lineBuf);
-        line = lineBuf.c_str();
-        if (lineCountBase == (size_t)(-1)) {
-            lineCountBase = lineCount;
-        }
-        if (!hasStatementEnd(line, lineBuf.size(), inMacroDef, &inMacroDef)) {
-            continue;
-        } else { // get a whole statement
-        }
-        s = e;
-        line = lines.c_str()+s;
-        parseLine(line, tokens, lineCountBase);
-        e = lines.size();
-
-        ts = te;
-
-
-            last = &c;
-            lastCompStmtTok = compStmtTok;
-            ++ts;
-        }
-
-        lineCountBase = (size_t)(-1);
-
-
-
-
-
-bool hasStatementEnd(const char *line, size_t len, bool inMacroDef, bool* pInMacroDef) {
-    if (line && len > 0) {
-        char c = line[0];
-        const char *end = &line[len];
-        // if (pInMacroDef) {
-        if (c == '#') {
-            // *pInMacroDef = true;
-            inMacroDef = true;
-        } else if (len > 1) {
-            const char* p = &line[1];
-            c = *p;
-            while (p < end && (c == ' ' || c == '\t')) {
-                ++p;
-                c = *p;
-            }
-            if (p < end && (c == '#'))
-                inMacroDef = true;
-        }
-        // }
-
-        const char* p = end - 1;
-        c = *p;
-        while (p > line && (c == ' ' || c == '\t' || c == '\n' || c == '\r')) {
-            --p;
-            c = *p;
-        }
-        if (p >= line) {
-            if (!inMacroDef) {
-                if (c == ';' || c == '}' || c == '{')
-                    return true;
-            } else {
-                if (c == '\\') {
-                    if (pInMacroDef) {
-                        *pInMacroDef = true;
+            if (c.typ == TK_O_PLUS && n && n->typ == TK_UNKOWN && last && last->typ == TK_UNKOWN) { // MP. bufferName + intVariable
+                bool vuln = false;
+                auto end = g_cbSizeMap.end();
+                decltype(end) itLhs, itRhs;
+                if ((itLhs = g_cbSizeMap.find(getTokenStr(*last))) != end ||
+                    (itRhs = g_cbSizeMap.find(getTokenStr(*n))) != end) {
+                    if (itRhs != end) {
+                        //getRangeOfVar(*last, stmtNodes);
+                    } else {
+                        //getRangeOfVar(*n, stmtNodes);
                     }
-                    return false;
-                } else {
-                    if (pInMacroDef) {
-                        *pInMacroDef = false;
+                    if (stmtNodes) {
+                        vuln = false;
+                    } else {
+                        vuln = true;
                     }
-                    return true;
+                }
+                if (vuln) {
+                    printf("\t#unsafe Out-Of-Range-Add. %s:%d:%d\n", file, c.line, c.column);
                 }
             }
-        }
-        /*
-        {
-            int i = strspn(line, " \t");
-            if (i >= 0 && i < len && line[i] == '#') {
-                if (pInMacroDef) {
-                    *pInMacroDef = true;
-                }
-                return true;
-            }
-            if (strpbrk(line, ";{}")) {
-                return true;
-            }
-        }*/
-    }
-    return false;
-}
 
 ///////////// Trim utility
+#include <cctype>
+#include <locale>
+
+// trim from start (in place)
+static inline void ltrim(std::string &s) {
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int ch) {
+        return !std::isspace(ch);
+    }));
+}
+
+// trim from end (in place)
+static inline void rtrim(std::string &s) {
+    s.erase(std::find_if(s.rbegin(), s.rend(), [](int ch) {
+        return !std::isspace(ch);
+    }).base(), s.end());
+}
+
+// trim from both ends (in place)
+static inline void trim(std::string &s) {
+    ltrim(s);
+    rtrim(s);
+}
+
+// trim from start (copying)
+static inline std::string ltrim_copy(std::string s) {
+    ltrim(s);
+    return s;
+}
+
+// trim from end (copying)
+static inline std::string rtrim_copy(std::string s) {
+    rtrim(s);
+    return s;
+}
+
+// trim from both ends (copying)
+static inline std::string trim_copy(std::string s) {
+    trim(s);
+    return s;
+}
+////////////////
