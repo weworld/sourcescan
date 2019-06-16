@@ -686,45 +686,410 @@ int main(int argc, char **argv)
                 }
             }
 
-///////////// Trim utility
-#include <cctype>
-#include <locale>
+///////////// parseF
+            // Members declarations / Variables
+            if (n && n->typ == TK_O_LBRACKET && c.typ == TK_UNKOWN && last && (last->typ < TK_SEMICOLUMN || last->typ == TK_O_MUL)) {
+                Token *n2 = NULL;
+                if (ts+2 < te) {
+                    n2 = &tokens[ts+2];
+                }
+                if (n2) {
+                    std::string bufName = getTokenStr(c);
+                    std::string bufSizeStr = getTokenStr(*n2);
+                    // int bufSize = atoi(bufSizeStr.c_str());
+                    // printf("\t^%d,%d ", last->typ, bufSize);
+                    // printfToken(c);
+                    // printf("\n");
+                    g_bufferSizeMap[bufName] = bufSizeStr;
+                }
+            }
 
-// trim from start (in place)
-static inline void ltrim(std::string &s) {
-    s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](int ch) {
-        return !std::isspace(ch);
-    }));
-}
+            // Calls
+            bool compStmtTok = false;
+            if (braceDepth > 0 && (c.typ == TK_IF || c.typ == TK_WHILE || c.typ == TK_FOR || c.typ == TK_DO || c.typ == TK_SWITCH)) {
+                compStmtTok = true;
+            }
+            if (braceDepth >= 0 && n && n->typ == TK_O_LPARENT && !(compStmtTok ||
+                c.typ >= TK_O_ASSIGN || c.typ == TK_SINGLELINE_COMMENT ||
+                c.typ == TK_MULTILINES_COMMENT)) {
+                // printfToken(c);
+                if (braceDepth == 0) {
+                    head = &c;
+                    headIndex = ts;
+                } else if (braceDepth > 0) {
+                    analyzeCalls(tokens, ts, te, c, file);
+                }
+            }
 
-// trim from end (in place)
-static inline void rtrim(std::string &s) {
-    s.erase(std::find_if(s.rbegin(), s.rend(), [](int ch) {
-        return !std::isspace(ch);
-    }).base(), s.end());
-}
+            // Function declarations
+            //*
+            if (head && n && braceDepth == 0) {  // && stmtDepth == -1
+                if (n->typ == TK_O_LPARENT) {
+                    bool vuln = false;
+                    std::vector<std::pair<std::string, std::string> > params;
+                    parseFuncParams(tokens, ts+2, te, params);
+                    for (const auto& param : params) {
+                        printf("\t###(%s :%s -- %s)\n", param.first.c_str(), param.second.c_str(), file);
+                    }
+                } else if (n->typ == TK_LBRACE && c.typ == TK_O_RPARENT) {
+                    stmtDepth = 0;
+                    printf("@");
+                    printfToken(*head);
+                    printf("\n");
+                    func = new Function(nullptr, headIndex, getTokenStr(*head), braceDepth);
+                    stmtNodes = new CmptStmt(stmtNodes, ts+1, getTokenStr(*n), braceDepth);
+                    func->setBody(stmtNodes);
+                    funcs.push_back(func);
+                    head = nullptr;
+                }
+            }
+            //*/
 
-// trim from both ends (in place)
-static inline void trim(std::string &s) {
-    ltrim(s);
-    rtrim(s);
-}
+            // Statements
+            CmptStmt * stmtNode;
+            if (compStmtTok) {
+                stmtNode = new CmptStmt(stmtNodes, ts, getTokenStr(c), braceDepth);
+                /*
+                if (stmtNodes != nullptr) {
+                    //static_cast<Node*>(stmtNode)->setParent(a); // hide Node* setParent
+                    stmtNode->setParent(stmtNodes);
+                } else {
+                    stmtNode->setParent(nullptr);
+                }*/
+                stmtNodes = stmtNode;
+            } else if (stmtNodes && braceDepth == stmtNodes->getBraceDepth() && (c.typ == TK_SEMICOLUMN || (last && last->typ == TK_RBRACE))) {
+                stmtNode = stmtNodes;
+                stmtNodes = stmtNode->getParent();
+                // delete stmtNode;
+            }
 
-// trim from start (copying)
-static inline std::string ltrim_copy(std::string s) {
-    ltrim(s);
-    return s;
-}
+            // Statements match
 
-// trim from end (copying)
-static inline std::string rtrim_copy(std::string s) {
-    rtrim(s);
-    return s;
-}
+            // ARR30-C. Do not form or use out-of-bounds pointers or array subscripts
+            // ARR30-C case2: Dereferencing Past-the-End Pointer: while (cond) { *pointerVar++ }
+            if (stmtNodes) {
+                const Token* tok = stmtNodes->Tok(tokens);
+                if (tok && tok->typ == TK_WHILE) { // MP. while (some-Condition)
+                    if (n && n->typ == TK_O_INC && last && last->typ == TK_O_MUL) { // MS. *pointerVariable++
+                        std::vector<std::string> args;
+                        size_t ti = tok - &tokens[0];
+                        parseCallArgs(tokens, ti+2, te, args); // J1. parse Condition
+                        if (args.size() > 0 && !strstr(args[0].c_str(), getTokenStr(c).c_str())) { // J. Condition contains pointerVariable
+                            printf("\t#unsafe Out-Of-Range. %s:%d:%d\n", file, c.line, c.column);
+                        }
+                    }
+                }
+            }
 
-// trim from both ends (copying)
-static inline std::string trim_copy(std::string s) {
-    trim(s);
-    return s;
-}
+            // Buffer Analysis
+            // ARR30-C case1: Forming Out-of-Bounds Pointer: arr + may-out-of-bounds-index
+            // ARR30-C case3: Using Past-the-End Index: arr[may-out-of-bounds-index]
+            if (c.typ == TK_O_PLUS && n && n->typ == TK_UNKOWN && last && last->typ == TK_UNKOWN) { // MP. bufferName + intVariable
+                bool vuln = false;
+                auto end = g_bufferSizeMap.end();
+                decltype(end) itLhs, itRhs;
+                if ((itLhs = g_bufferSizeMap.find(getTokenStr(*last))) != end ||
+                    (itRhs = g_bufferSizeMap.find(getTokenStr(*n))) != end) {
+                    if (itLhs != end) {
+                        getRangeOfVar(*n, stmtNodes, tokens);
+                    } else {
+                        getRangeOfVar(*last, stmtNodes, tokens);
+                    }
+                    if (stmtNodes) {
+                        vuln = false;
+                    } else {
+                        vuln = true;
+                    }
+                }
+                if (vuln) {
+                    printf("\t#unsafe Out-Of-Range-Add. %s:%d:%d\n", file, c.line, c.column);
+                }
+            }
 ////////////////
+
+//parseCallArgs
+ 
+//parseFuncParams
+
+
+class Node {
+public:
+    ~Node() {}
+
+    Node(Node* parent, size_t tokIndex, const std::string& name, int braceDepth, bool isStatement = false)
+        : parent(parent), isStatement(isStatement), tokIndex(tokIndex), name(name), braceDepth(braceDepth) {
+    }
+
+    Node* getParent() {
+        return this->parent;
+    }
+
+    Node* setParent(Node* parent) {
+        Node* temp = parent;
+        this->parent = parent;
+        return temp;
+    }
+    
+    int getBraceDepth() {
+        return this->braceDepth;
+    }
+
+    const Token* Tok(const std::vector<Token>& tokens) {
+        return (tokIndex < tokens.size()) ? &tokens[tokIndex] : nullptr;
+    }
+
+private:
+    friend class Stmt;
+    friend class TypeNode;
+
+    class Node* parent;
+    bool isStatement : 1;
+    std::string name;
+    size_t tokIndex;
+    int braceDepth;
+};
+
+typedef enum StatmentType {
+    ST_EXPR = 0, ST_DECLARE, ST_COMPOSITE, ST_IF, ST_ELSEIF, ST_ELSE, ST_SWITCH, ST_CASE, ST_DEFAULT,
+    ST_FOR, ST_FOR_INIT, ST_FOR_COND, ST_FOR_STEP, ST_WHILE, ST_DO, // ST_IF_INIT, ST_SWITCH_INIT, ST_WHILE_INIT,
+    ST_RETURN, ST_BREAK, ST_CONTINUE, ST_LABEL, ST_GOTO, 
+} StatmentType;
+
+typedef enum Operator {
+    OP_CALL, OP_COMMA
+} Operator;
+
+class Stmt : public Node {
+public:
+    Stmt(class CmptStmt* parent, size_t tokIndex, const std::string& name, int braceDepth);
+    class CmptStmt* getParent();
+    //virtual bool setParent(class CmptStmt* parent);
+
+private:
+    StatmentType type;
+};
+
+class Expr : Stmt { // Leaf of The Statement Tree
+    Operator op;
+};
+
+class BinaryExpr : Expr {
+    Expr* lhs;
+    Expr* rhs;
+};
+
+class UnaryExpr : Expr {
+    Expr* oprand;
+};
+
+typedef union {
+    char charVal;
+    short shortVal;
+    int intVal;
+    long longVal;
+    long long longLongVal;
+    unsigned char ucharVal;
+    unsigned short ushortVal;
+    unsigned int uintVal;
+    unsigned long ulongVal;
+    unsigned long long ulongLongVal;
+    float floatVal;
+    double doubleVal;
+    long double longDoubleVal;
+    void* pointerVal;
+    uintptr_t uintptrVal;
+} Any;
+
+typedef enum {
+    VT_CHAR, VT_INT8, VT_SHORT, VT_INT16, VT_INT32, VT_INT, VT_LONG, VT_LONGLONG, VT_INT64,
+    VT_UCHAR, VT_UINT8, VT_USHORT, VT_UINT16, VT_UINT32, VT_UINT, VT_ULONG, VT_ULONGLONG, VT_UINT64,
+    VT_UINTPTR, VT_FLOAT, VT_DOUBLE, VT_LONGDOUBLE, VT_POINTER, VT_ARRAY, VT_STRUCT_CLASS, VT_VIRTUAL_CLASS
+} ValueType;
+
+class ConstOrVariable : Expr {
+    std::string name;
+    ValueType valType;
+    Any value; // or initial value for Variable
+};
+
+class Const : ConstOrVariable {
+};
+
+// class FunctionName : Const {
+// };
+
+class Variable : ConstOrVariable {
+};
+
+class PrimaryVariable : Variable {
+};
+
+typedef enum MetaType {
+    MT_STRUCT, MT_MEMBER, MT_FUNCTION, MT_METHOD, 
+} MetaType;
+
+class TypeNode : Node {
+public:
+    //TypeNode(class TypeNode* parent, size_t tokIndex, const std::string& name, int braceDepth);
+    TypeNode(class TypeNode* parent, size_t tokIndex, const std::string& name, int braceDepth)
+        : Node(parent, tokIndex, name, braceDepth, true) {
+        // if (parent) {
+        //     parent->addChild(this);
+        // }
+    }
+
+    class TypeNode* getParent();
+
+private:
+    MetaType type;
+};
+
+class Function : TypeNode {
+public:
+    Function(class TypeNode* parent, size_t tokIndex, const std::string& name, int braceDepth)
+        : TypeNode(parent, tokIndex, name, braceDepth), body(nullptr) {
+    }
+
+    void setBody(CmptStmt* body) {
+        this->body = body;
+    }
+
+private:
+    // std::string name;
+    class CmptStmt* body;
+};
+
+class Method : Function {
+};
+
+class Member : TypeNode {
+};
+
+class Struct : TypeNode {
+    std::vector<Member> staticMembers;
+    std::vector<Function*> staticFunctions;
+    std::vector<Member> members;
+    std::vector<Method*> methods;
+};
+
+class StructVariable : Variable {
+    Struct* structTypeInfo;
+};
+
+class Buffer {
+    Variable* refToFirstElem;
+    size_t length;
+};
+
+class ArrayVariable : Variable {
+    Buffer original;
+    ValueType elemType;
+};
+
+class PointerVariable : Variable {
+    Buffer *original;
+    size_t currentIndex;
+};
+
+// class Pointer : PointerOrArray {
+// };
+
+class CallExpr : Expr {
+    Expr* lhs;
+    std::vector<Expr*> args;
+};
+
+class AssignStmt : BinaryExpr {
+};
+
+class CommaExpr : Expr {
+    std::vector<Expr*> children;
+};
+
+class DeclareStmt : Stmt {
+};
+
+class CmptStmt : public Stmt {
+public:
+    CmptStmt(CmptStmt* parent, size_t tokIndex, const std::string& name, int braceDepth)
+        : Stmt(parent, tokIndex, name, braceDepth) {
+    }
+
+    int addChild(Stmt* stmt) {
+        if (!stmt)
+            return -1;
+        children.push_back(stmt);
+        stmt->setParent(this);
+        return children.size()-1;
+    }
+
+    size_t getChildCount() {
+        return children.size();
+    }
+
+private:
+    friend class Stmt;
+    std::vector<Stmt*> children;
+};
+
+Stmt::Stmt(CmptStmt* parent, size_t tokIndex, const std::string& name, int braceDepth)
+    : Node(parent, tokIndex, name, braceDepth, true) {
+    if (parent) {
+        parent->addChild(this);
+    }
+}
+
+CmptStmt* Stmt::getParent() {
+    return static_cast<CmptStmt*>(this->parent);
+}
+
+/*
+bool Stmt::setParent(CmptStmt* parent) {
+    if (!parent) {
+        return false;
+    }
+    Node* temp = Node::setParent(parent);
+    // parent->children.push_back(this);
+    if (!temp) {
+        delete temp;
+    }
+    return true;
+}
+*/
+
+class IfStmt : CmptStmt {
+    CmptStmt* branchStmt; // nullptr | else | else if
+};
+
+class ElseIfStmt : CmptStmt {
+    CmptStmt* branchStmt; // nullptr | else | else if
+};
+
+class ElseStmt : CmptStmt {
+};
+
+class ForStmt : CmptStmt {
+    Stmt* init; // AssignStmt | CommaExpr | DeclareStmt
+    Expr* cond; // Expr
+    Stmt* step;
+};
+
+class WhileStmt : CmptStmt {
+    Stmt* init; // AssignStmt | CommaExpr | DeclareStmt
+    Expr* cond; // Expr
+};
+
+std::unordered_map<std::string, std::string> g_bufferSizeMap;
+
+//analyzeCalls
+
+std::vector<Function*> funcs;
+Function* func = nullptr;
+
+bool getRangeOfVar(const Token& var, const Node* stmtNodes, const std::vector<Token>& tokens) {
+
+}
+
+///////////////////
+//parseFile
+
