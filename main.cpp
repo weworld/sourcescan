@@ -746,7 +746,7 @@ int main(int argc, char **argv)
             //*/
 
             // Statements
-            CmptStmt * stmtNode;
+            CmptStmt* stmtNode;
             if (compStmtTok) {
                 stmtNode = new CmptStmt(stmtNodes, ts, getTokenStr(c), braceDepth);
                 /*
@@ -757,10 +757,16 @@ int main(int argc, char **argv)
                     stmtNode->setParent(nullptr);
                 }*/
                 stmtNodes = stmtNode;
-            } else if (stmtNodes && braceDepth == stmtNodes->getBraceDepth() && (c.typ == TK_SEMICOLUMN || (last && last->typ == TK_RBRACE))) {
+            } else if (stmtNodes && braceDepth == stmtNodes->getBraceDepth() && (c.typ == TK_SEMICOLUMN || (c.typ == TK_RBRACE))) { // (last && last->typ == TK_RBRACE)
+                if (c.typ == TK_SEMICOLUMN) {
+                    Stmt* exprStmtNode = new Stmt(stmtNodes, ST_EXPR, ts, ";", braceDepth);
+                }
                 stmtNode = stmtNodes;
                 stmtNodes = stmtNode->getParent();
                 // delete stmtNode;
+            } else if (stmtNodes && c.typ == TK_SEMICOLUMN) {
+                //stmtNodes->addChild(
+                Stmt* exprStmtNode = new Stmt(stmtNodes, ST_EXPR, ts, ";", braceDepth);
             }
 
             // Statements match
@@ -1078,6 +1084,15 @@ class WhileStmt : CmptStmt {
     Stmt* init; // AssignStmt | CommaExpr | DeclareStmt
     Expr* cond; // Expr
 };
+
+void printAST(CmptStmt* body) {
+    for (auto& child : body->children) {
+        printf("\t%s\n", child->getName().c_str());
+        if (child->isComposite()) {
+            printAST(static_cast<CmptStmt*>(child));
+        }
+    }
+}
 
 std::unordered_map<std::string, std::string> g_bufferSizeMap;
 
