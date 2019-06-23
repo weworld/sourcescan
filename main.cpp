@@ -1129,6 +1129,61 @@ bool getRangeOfVar(const Token& var, const Node* stmtNodes, const std::vector<To
 
 
 
+class CmptStmt : public Stmt {
+public:
+    CmptStmt(CmptStmt* parent, size_t tokIndex, TokenType tokType, const std::string& name, int braceDepth)
+        : Stmt(parent, ST_COMPOSITE, tokIndex, tokType, name, braceDepth) {
+    }
+
+protected:
+    CmptStmt(CmptStmt* parent, StatmentType stmtType, size_t tokIndex, TokenType tokType, const std::string& name, int braceDepth)
+        : Stmt(parent, stmtType, tokIndex, tokType, name, braceDepth) {
+    }
+
+public:
+    static CmptStmt* createDerivedCmptStmt(CmptStmt* parent, size_t tokIndex, TokenType tokType, const std::string& name, int braceDepth);
+
+    int addChild(Stmt* stmt) {
+        if (!stmt)
+            return -1;
+        children.push_back(stmt);
+        stmt->setParent(this);
+        return children.size()-1;
+    }
+
+    size_t getChildCount() {
+        return children.size();
+    }
+
+    std::vector<CmptStmt*> getParentWith(StatmentType stmtType) { // TokenType tokenType, const std::vector<Token>& tokens
+        std::vector<CmptStmt*> result;
+        // return (tokIndex < tokens.size()) ? &tokens[tokIndex] : nullptr;
+        // const Token* tok = stmtNodes->tokenIn(tokens);
+        // if (tok && tok->typ == TK_WHILE)
+        CmptStmt* parent = this;
+        while (parent) {
+            if (parent->stmtType == stmtType) {
+                result.push_back(parent);
+            }
+            parent = parent->getParent();
+        }
+        return result;
+    }
+
+private:
+    friend class Stmt;
+    friend void printAST(CmptStmt* body);
+    friend void destroyAST(CmptStmt* body);
+    std::vector<Stmt*> children;
+};
+
+Stmt::Stmt(CmptStmt* parent, StatmentType stmtType, size_t tokIndex, TokenType tokType, const std::string& name, int braceDepth)
+    : Node(parent, tokIndex, tokType, name, braceDepth, true), stmtType(stmtType) {
+    if (parent) {
+        parent->addChild(this);
+    }
+}
+
 CmptStmt* Stmt::getParent() {
     return static_cast<CmptStmt*>(this->parent);
 }
