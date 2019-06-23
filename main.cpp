@@ -1108,3 +1108,119 @@ bool getRangeOfVar(const Token& var, const Node* stmtNodes, const std::vector<To
 ///////////////////
 //parseFile
 
+
+            if (stmtNodes && n && n->typ == TK_O_INC && last && last->typ == TK_O_MUL) { // MP1. *pointerVariable++
+                // const Token* tok = stmtNodes->tokenIn(tokens);
+                // if (tok && tok->typ == TK_WHILE) { // MP2. while (some-Condition)
+                std::vector<CmptStmt*> parents = stmtNodes->getParentWith(ST_WHILE);
+                if (parents.size() > 0) {
+                    //if (n && n->typ == TK_O_INC && last && last->typ == TK_O_MUL) { // MS. *pointerVariable++
+                    std::vector<std::string> args;
+                    // const Token* tok =parents[0]->tokenIn(tokens);
+                    // size_t ti = tok - &tokens[0];
+                    size_t ti = parents[0]->getTokIndex();
+                    parseCallArgs(tokens, ti+2, te, args); // J1. parse Condition
+                    if (args.size() > 0 && !strstr(args[0].c_str(), getTokenStr(c).c_str())) { // J. Condition contains pointerVariable
+                        printf("\t#unsafe Out-Of-Range. %s:%d:%d\n", file, c.line, c.column);
+                    }
+                    //}
+                }
+            }
+
+
+
+CmptStmt* Stmt::getParent() {
+    return static_cast<CmptStmt*>(this->parent);
+}
+
+/*
+bool Stmt::setParent(CmptStmt* parent) {
+    if (!parent) {
+        return false;
+    }
+    Node* temp = Node::setParent(parent);
+    // parent->children.push_back(this);
+    if (!temp) {
+        delete temp;
+    }
+    return true;
+}
+*/
+
+class IfStmt : public CmptStmt {
+public:
+    IfStmt(CmptStmt* parent, size_t tokIndex, TokenType tokType, const std::string& name, int braceDepth)
+        : CmptStmt(parent, ST_IF, tokIndex, tokType, name, braceDepth) {
+    }
+
+private:
+    CmptStmt* branchStmt; // nullptr | else | else if
+};
+
+class ElseIfStmt : public CmptStmt {
+    CmptStmt* branchStmt; // nullptr | else | else if
+};
+
+class ElseStmt : public CmptStmt {
+};
+
+class ForStmt : public CmptStmt {
+public:
+    ForStmt(CmptStmt* parent, size_t tokIndex, TokenType tokType, const std::string& name, int braceDepth)
+        : CmptStmt(parent, ST_FOR, tokIndex, tokType, name, braceDepth) {
+    }
+
+private:
+    Stmt* init; // AssignStmt | CommaExpr | DeclareStmt
+    Expr* cond; // Expr
+    Stmt* step;
+};
+
+class WhileStmt : public CmptStmt {
+public:
+    WhileStmt(CmptStmt* parent, size_t tokIndex, TokenType tokType, const std::string& name, int braceDepth)
+        : CmptStmt(parent, ST_WHILE, tokIndex, tokType, name, braceDepth) {
+    }
+
+private:
+    Stmt* init; // AssignStmt | CommaExpr | DeclareStmt
+    Expr* cond; // Expr
+};
+
+CmptStmt* CmptStmt::createDerivedCmptStmt(CmptStmt* parent, size_t tokIndex, TokenType tokType, const std::string& name, int braceDepth) {
+    CmptStmt* result = nullptr;
+    switch (tokType) {
+        case TK_IF:
+            result = new IfStmt(parent, tokIndex, tokType, name, braceDepth);
+            break;
+        case TK_FOR:
+            result = new ForStmt(parent, tokIndex, tokType, name, braceDepth);
+            break;
+        case TK_WHILE:
+            result = new WhileStmt(parent, tokIndex, tokType, name, braceDepth);
+            break;
+        default:
+            result = new CmptStmt(parent, tokIndex, tokType, name, braceDepth);
+            break;
+    }
+    return result;
+}
+
+
+void destroyTypeStack(TypeNode* typeNodes) {
+     while (typeNodes) {
+        TypeNode* typeNode = typeNodes;
+        typeNodes = typeNodes->getParent();
+        delete typeNode;
+    }
+}
+
+void destroyStmtStack(CmptStmt* stmtNodes) {
+     while (stmtNodes) {
+        Stmt* stmtNode = stmtNodes;
+        stmtNodes = stmtNodes->getParent();
+        delete stmtNode;
+    }
+}
+
+std::unordered_map<std::string, std::string> g_bufferSizeMap;
