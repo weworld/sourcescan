@@ -1278,4 +1278,43 @@ void destroyStmtStack(CmptStmt* stmtNodes) {
     }
 }
 
+bool getRangeOfVar(const Token& tok, const CmptStmt* stmtNodes, const std::vector<Token>& tokens) {
+    std::vector<std::string> args;
+    const CmptStmt* parent = stmtNodes;
+    parseCallArgs(tokens, stmtNodes->getTokIndex()+2, tokens.size(), args);
+    if (args.size() > 0) {
+        std::string cond = args[0];
+        //const char* condstr = cond.c_str();
+        //const char* p = strpbrk(condstr, "&|");
+        printf("condition: %s\n", args[0].c_str());
+        size_t idx = 0, idx0, idx1, idx2;
+        std::string cmpstr;
+        bool andOp;
+        while (idx != std::string::npos) {
+            idx0 = idx;
+            idx = cond.find("&&", idx);
+            if (idx == std::string::npos) {
+                idx = cond.find("||");
+                andOp = false;
+            } else {
+                andOp = true;
+            }
+            if (idx != std::string::npos) {
+                cmpstr = cond.substr(idx0, idx);
+                idx += 2;
+            } else {
+                cmpstr = cond.substr(idx0);
+            }
+            idx1 = cmpstr.find_first_of("<>=");
+            if (idx1 != std::string::npos) {
+                idx2 = cmpstr.find_first_not_of("<>=", idx1);
+                if (idx2 != std::string::npos) {
+                    printf("lhs: %s, %s\n", cmpstr.substr(0, idx1).c_str(), cmpstr.substr(idx2).c_str());
+                }
+            }
+        }
+    }
+    return true;
+}
+
 std::unordered_map<std::string, std::string> g_bufferSizeMap;
