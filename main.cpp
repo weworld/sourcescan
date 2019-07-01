@@ -634,687 +634,130 @@ int main(int argc, char **argv)
     return 0;
 }
 
-// AnaC
-        if (args.size() == 4) {
-            std::string arg1 = args[1];
-            std::string bufName;
-            size_t pos;
-            if ((pos = arg1.find("sizeof")) == 0) {
-                size_t nameLen = arg1.size()-6;
-                size_t nameBeg = pos+6;
-                if (arg1[pos+6] == '(') {
-                    nameLen -= 2;
-                    nameBeg += 1;
-                }
-                bufName = arg1.substr(nameBeg, nameLen);
-                trim(bufName);
-                if (bufName != args[0]) {
-                    vuln = true;
-                }
-            } else {
-                std::string arg0 = args[0];
-                auto it = g_cbSizeMap.find(arg0);
-                if (it != g_cbSizeMap.end()) {
-                    if (it->second != arg1) {
-                        vuln = true;
-                    }
-                }
-            }
+
+struct UnionValue {
+    bool isUnkn: 1;     // 0 normal         1 Empty set / Unkown
+    bool isReal: 1;     // 0 Int            1 Real
+    bool isUnsg: 1;     // 0 signed         1 unSigned
+    bool isInfm: 1;     // 0 normal         1 Infinite when min/max for Int
+    union {
+        long long SignedLLInt;
+        unsigned long long UnSignedLLInt;
+        long double LongDouble;
+    };
+};
+
+struct Interval {
+    bool isEmpt: 1;     // 0 normal         1 Empty set
+    bool eqOnly: 1;     // 0 gt&eq bits     1 eq bit only
+    bool gt : 1;        // 0 little         1 great
+    bool eq : 1;        // 0 not-equal      1 equal 
+    UnionValue value;
+
+    static bool satifyImpl(UnionValue value, Interval half) {
+        if (half.isEmpt) {
+            return false;
         }
-
-
-// parseF
-            if (c.typ == TK_O_PLUS && n && n->typ == TK_UNKOWN && last && last->typ == TK_UNKOWN) { // MP. bufferName + intVariable
-                bool vuln = false;
-                auto end = g_cbSizeMap.end();
-                decltype(end) itLhs, itRhs;
-                if ((itLhs = g_cbSizeMap.find(getTokenStr(*last))) != end ||
-                    (itRhs = g_cbSizeMap.find(getTokenStr(*n))) != end) {
-                    if (itRhs != end) {
-                        //getRangeOfVar(*last, stmtNodes);
-                    } else {
-                        //getRangeOfVar(*n, stmtNodes);
-                    }
-                    if (stmtNodes) {
-                        vuln = false;
-                    } else {
-                        vuln = true;
-                    }
-                }
-                if (vuln) {
-                    printf("\t#unsafe Out-Of-Range-Add. %s:%d:%d\n", file, c.line, c.column);
-                }
-            }
-
-///////////// parseF
-            // Members declarations / Variables
-            if (n && n->typ == TK_O_LBRACKET && c.typ == TK_UNKOWN && last && (last->typ < TK_SEMICOLUMN || last->typ == TK_O_MUL)) {
-                Token *n2 = NULL;
-                if (ts+2 < te) {
-                    n2 = &tokens[ts+2];
-                }
-                if (n2) {
-                    std::string bufName = getTokenStr(c);
-                    std::string bufSizeStr = getTokenStr(*n2);
-                    // int bufSize = atoi(bufSizeStr.c_str());
-                    // printf("\t^%d,%d ", last->typ, bufSize);
-                    // printfToken(c);
-                    // printf("\n");
-                    g_bufferSizeMap[bufName] = bufSizeStr;
-                }
-            }
-
-            // Calls
-            bool compStmtTok = false;
-            if (braceDepth > 0 && (c.typ == TK_IF || c.typ == TK_WHILE || c.typ == TK_FOR || c.typ == TK_DO || c.typ == TK_SWITCH)) {
-                compStmtTok = true;
-            }
-            if (braceDepth >= 0 && n && n->typ == TK_O_LPARENT && !(compStmtTok ||
-                c.typ >= TK_O_ASSIGN || c.typ == TK_SINGLELINE_COMMENT ||
-                c.typ == TK_MULTILINES_COMMENT)) {
-                // printfToken(c);
-                if (braceDepth == 0) {
-                    head = &c;
-                    headIndex = ts;
-                } else if (braceDepth > 0) {
-                    analyzeCalls(tokens, ts, te, c, file);
-                }
-            }
-
-            // Function declarations
-            //*
-            if (head && n && braceDepth == 0) {  // && stmtDepth == -1
-                if (n->typ == TK_O_LPARENT) {
-                    bool vuln = false;
-                    std::vector<std::pair<std::string, std::string> > params;
-                    parseFuncParams(tokens, ts+2, te, params);
-                    for (const auto& param : params) {
-                        printf("\t###(%s :%s -- %s)\n", param.first.c_str(), param.second.c_str(), file);
-                    }
-                } else if (n->typ == TK_LBRACE && c.typ == TK_O_RPARENT) {
-                    stmtDepth = 0;
-                    printf("@");
-                    printfToken(*head);
-                    printf("\n");
-                    func = new Function(nullptr, headIndex, getTokenStr(*head), braceDepth);
-                    stmtNodes = new CmptStmt(stmtNodes, ts+1, getTokenStr(*n), braceDepth);
-                    func->setBody(stmtNodes);
-                    funcs.push_back(func);
-                    head = nullptr;
-                }
-            }
-            //*/
-
-            // Statements
-            CmptStmt* stmtNode;
-            if (compStmtTok) {
-                stmtNode = new CmptStmt(stmtNodes, ts, getTokenStr(c), braceDepth);
-                /*
-                if (stmtNodes != nullptr) {
-                    //static_cast<Node*>(stmtNode)->setParent(a); // hide Node* setParent
-                    stmtNode->setParent(stmtNodes);
+        if (value.isReal || half.value.isReal) {
+            long double valueReal = (value.isReal ? value.LongDouble : (value.isUnsg ? value.UnSignedLLInt : value.SignedLLInt));
+            long double halfReal = (half.value.isReal ? half.value.LongDouble : (half.value.isUnsg ? half.value.UnSignedLLInt : half.value.SignedLLInt));
+            if (half.eqOnly) {
+                if (half.eq) {
+                    return valueReal == halfReal;
                 } else {
-                    stmtNode->setParent(nullptr);
-                }*/
-                stmtNodes = stmtNode;
-            } else if (stmtNodes && braceDepth == stmtNodes->getBraceDepth() && (c.typ == TK_SEMICOLUMN || (c.typ == TK_RBRACE))) { // (last && last->typ == TK_RBRACE)
-                if (c.typ == TK_SEMICOLUMN) {
-                    Stmt* exprStmtNode = new Stmt(stmtNodes, ST_EXPR, ts, ";", braceDepth);
-                }
-                stmtNode = stmtNodes;
-                stmtNodes = stmtNode->getParent();
-                // delete stmtNode;
-            } else if (stmtNodes && c.typ == TK_SEMICOLUMN) {
-                //stmtNodes->addChild(
-                Stmt* exprStmtNode = new Stmt(stmtNodes, ST_EXPR, ts, ";", braceDepth);
-            }
-
-            // Statements match
-
-            // ARR30-C. Do not form or use out-of-bounds pointers or array subscripts
-            // ARR30-C case2: Dereferencing Past-the-End Pointer: while (cond) { *pointerVar++ }
-            if (stmtNodes) {
-                const Token* tok = stmtNodes->Tok(tokens);
-                if (tok && tok->typ == TK_WHILE) { // MP. while (some-Condition)
-                    if (n && n->typ == TK_O_INC && last && last->typ == TK_O_MUL) { // MS. *pointerVariable++
-                        std::vector<std::string> args;
-                        size_t ti = tok - &tokens[0];
-                        parseCallArgs(tokens, ti+2, te, args); // J1. parse Condition
-                        if (args.size() > 0 && !strstr(args[0].c_str(), getTokenStr(c).c_str())) { // J. Condition contains pointerVariable
-                            printf("\t#unsafe Out-Of-Range. %s:%d:%d\n", file, c.line, c.column);
-                        }
-                    }
+                    return valueReal != halfReal;
                 }
             }
-
-            // Buffer Analysis
-            // ARR30-C case1: Forming Out-of-Bounds Pointer: arr + may-out-of-bounds-index
-            // ARR30-C case3: Using Past-the-End Index: arr[may-out-of-bounds-index]
-            if (c.typ == TK_O_PLUS && n && n->typ == TK_UNKOWN && last && last->typ == TK_UNKOWN) { // MP. bufferName + intVariable
-                bool vuln = false;
-                auto end = g_bufferSizeMap.end();
-                decltype(end) itLhs, itRhs;
-                if ((itLhs = g_bufferSizeMap.find(getTokenStr(*last))) != end ||
-                    (itRhs = g_bufferSizeMap.find(getTokenStr(*n))) != end) {
-                    if (itLhs != end) {
-                        getRangeOfVar(*n, stmtNodes, tokens);
-                    } else {
-                        getRangeOfVar(*last, stmtNodes, tokens);
-                    }
-                    if (stmtNodes) {
-                        vuln = false;
-                    } else {
-                        vuln = true;
-                    }
-                }
-                if (vuln) {
-                    printf("\t#unsafe Out-Of-Range-Add. %s:%d:%d\n", file, c.line, c.column);
-                }
-            }
-////////////////
-
-//parseCallArgs
- 
-//parseFuncParams
-
-
-class Node {
-public:
-    ~Node() {}
-
-    Node(Node* parent, size_t tokIndex, const std::string& name, int braceDepth, bool isStatement = false)
-        : parent(parent), isStatement(isStatement), tokIndex(tokIndex), name(name), braceDepth(braceDepth) {
-    }
-
-    Node* getParent() {
-        return this->parent;
-    }
-
-    Node* setParent(Node* parent) {
-        Node* temp = parent;
-        this->parent = parent;
-        return temp;
-    }
-    
-    int getBraceDepth() {
-        return this->braceDepth;
-    }
-
-    const Token* Tok(const std::vector<Token>& tokens) {
-        return (tokIndex < tokens.size()) ? &tokens[tokIndex] : nullptr;
-    }
-
-private:
-    friend class Stmt;
-    friend class TypeNode;
-
-    class Node* parent;
-    bool isStatement : 1;
-    std::string name;
-    size_t tokIndex;
-    int braceDepth;
-};
-
-typedef enum StatmentType {
-    ST_EXPR = 0, ST_DECLARE, ST_COMPOSITE, ST_IF, ST_ELSEIF, ST_ELSE, ST_SWITCH, ST_CASE, ST_DEFAULT,
-    ST_FOR, ST_FOR_INIT, ST_FOR_COND, ST_FOR_STEP, ST_WHILE, ST_DO, // ST_IF_INIT, ST_SWITCH_INIT, ST_WHILE_INIT,
-    ST_RETURN, ST_BREAK, ST_CONTINUE, ST_LABEL, ST_GOTO, 
-} StatmentType;
-
-typedef enum Operator {
-    OP_CALL, OP_COMMA
-} Operator;
-
-class Stmt : public Node {
-public:
-    Stmt(class CmptStmt* parent, size_t tokIndex, const std::string& name, int braceDepth);
-    class CmptStmt* getParent();
-    //virtual bool setParent(class CmptStmt* parent);
-
-private:
-    StatmentType type;
-};
-
-class Expr : Stmt { // Leaf of The Statement Tree
-    Operator op;
-};
-
-class BinaryExpr : Expr {
-    Expr* lhs;
-    Expr* rhs;
-};
-
-class UnaryExpr : Expr {
-    Expr* oprand;
-};
-
-typedef union {
-    char charVal;
-    short shortVal;
-    int intVal;
-    long longVal;
-    long long longLongVal;
-    unsigned char ucharVal;
-    unsigned short ushortVal;
-    unsigned int uintVal;
-    unsigned long ulongVal;
-    unsigned long long ulongLongVal;
-    float floatVal;
-    double doubleVal;
-    long double longDoubleVal;
-    void* pointerVal;
-    uintptr_t uintptrVal;
-} Any;
-
-typedef enum {
-    VT_CHAR, VT_INT8, VT_SHORT, VT_INT16, VT_INT32, VT_INT, VT_LONG, VT_LONGLONG, VT_INT64,
-    VT_UCHAR, VT_UINT8, VT_USHORT, VT_UINT16, VT_UINT32, VT_UINT, VT_ULONG, VT_ULONGLONG, VT_UINT64,
-    VT_UINTPTR, VT_FLOAT, VT_DOUBLE, VT_LONGDOUBLE, VT_POINTER, VT_ARRAY, VT_STRUCT_CLASS, VT_VIRTUAL_CLASS
-} ValueType;
-
-class ConstOrVariable : Expr {
-    std::string name;
-    ValueType valType;
-    Any value; // or initial value for Variable
-};
-
-class Const : ConstOrVariable {
-};
-
-// class FunctionName : Const {
-// };
-
-class Variable : ConstOrVariable {
-};
-
-class PrimaryVariable : Variable {
-};
-
-typedef enum MetaType {
-    MT_STRUCT, MT_MEMBER, MT_FUNCTION, MT_METHOD, 
-} MetaType;
-
-class TypeNode : Node {
-public:
-    //TypeNode(class TypeNode* parent, size_t tokIndex, const std::string& name, int braceDepth);
-    TypeNode(class TypeNode* parent, size_t tokIndex, const std::string& name, int braceDepth)
-        : Node(parent, tokIndex, name, braceDepth, true) {
-        // if (parent) {
-        //     parent->addChild(this);
-        // }
-    }
-
-    class TypeNode* getParent();
-
-private:
-    MetaType type;
-};
-
-class Function : TypeNode {
-public:
-    Function(class TypeNode* parent, size_t tokIndex, const std::string& name, int braceDepth)
-        : TypeNode(parent, tokIndex, name, braceDepth), body(nullptr) {
-    }
-
-    void setBody(CmptStmt* body) {
-        this->body = body;
-    }
-
-private:
-    // std::string name;
-    class CmptStmt* body;
-};
-
-class Method : Function {
-};
-
-class Member : TypeNode {
-};
-
-class Struct : TypeNode {
-    std::vector<Member> staticMembers;
-    std::vector<Function*> staticFunctions;
-    std::vector<Member> members;
-    std::vector<Method*> methods;
-};
-
-class StructVariable : Variable {
-    Struct* structTypeInfo;
-};
-
-class Buffer {
-    Variable* refToFirstElem;
-    size_t length;
-};
-
-class ArrayVariable : Variable {
-    Buffer original;
-    ValueType elemType;
-};
-
-class PointerVariable : Variable {
-    Buffer *original;
-    size_t currentIndex;
-};
-
-// class Pointer : PointerOrArray {
-// };
-
-class CallExpr : Expr {
-    Expr* lhs;
-    std::vector<Expr*> args;
-};
-
-class AssignStmt : BinaryExpr {
-};
-
-class CommaExpr : Expr {
-    std::vector<Expr*> children;
-};
-
-class DeclareStmt : Stmt {
-};
-
-class CmptStmt : public Stmt {
-public:
-    CmptStmt(CmptStmt* parent, size_t tokIndex, const std::string& name, int braceDepth)
-        : Stmt(parent, tokIndex, name, braceDepth) {
-    }
-
-    int addChild(Stmt* stmt) {
-        if (!stmt)
-            return -1;
-        children.push_back(stmt);
-        stmt->setParent(this);
-        return children.size()-1;
-    }
-
-    size_t getChildCount() {
-        return children.size();
-    }
-
-private:
-    friend class Stmt;
-    std::vector<Stmt*> children;
-};
-
-Stmt::Stmt(CmptStmt* parent, size_t tokIndex, const std::string& name, int braceDepth)
-    : Node(parent, tokIndex, name, braceDepth, true) {
-    if (parent) {
-        parent->addChild(this);
-    }
-}
-
-CmptStmt* Stmt::getParent() {
-    return static_cast<CmptStmt*>(this->parent);
-}
-
-/*
-bool Stmt::setParent(CmptStmt* parent) {
-    if (!parent) {
-        return false;
-    }
-    Node* temp = Node::setParent(parent);
-    // parent->children.push_back(this);
-    if (!temp) {
-        delete temp;
-    }
-    return true;
-}
-*/
-
-class IfStmt : CmptStmt {
-    CmptStmt* branchStmt; // nullptr | else | else if
-};
-
-class ElseIfStmt : CmptStmt {
-    CmptStmt* branchStmt; // nullptr | else | else if
-};
-
-class ElseStmt : CmptStmt {
-};
-
-class ForStmt : CmptStmt {
-    Stmt* init; // AssignStmt | CommaExpr | DeclareStmt
-    Expr* cond; // Expr
-    Stmt* step;
-};
-
-class WhileStmt : CmptStmt {
-    Stmt* init; // AssignStmt | CommaExpr | DeclareStmt
-    Expr* cond; // Expr
-};
-
-void printAST(CmptStmt* body) {
-    for (auto& child : body->children) {
-        printf("\t%s\n", child->getName().c_str());
-        if (child->isComposite()) {
-            printAST(static_cast<CmptStmt*>(child));
-        }
-    }
-}
-
-std::unordered_map<std::string, std::string> g_bufferSizeMap;
-
-//analyzeCalls
-
-std::vector<Function*> funcs;
-Function* func = nullptr;
-
-bool getRangeOfVar(const Token& var, const Node* stmtNodes, const std::vector<Token>& tokens) {
-
-}
-
-///////////////////
-//parseFile
-
-
-            if (stmtNodes && n && n->typ == TK_O_INC && last && last->typ == TK_O_MUL) { // MP1. *pointerVariable++
-                // const Token* tok = stmtNodes->tokenIn(tokens);
-                // if (tok && tok->typ == TK_WHILE) { // MP2. while (some-Condition)
-                std::vector<CmptStmt*> parents = stmtNodes->getParentWith(ST_WHILE);
-                if (parents.size() > 0) {
-                    //if (n && n->typ == TK_O_INC && last && last->typ == TK_O_MUL) { // MS. *pointerVariable++
-                    std::vector<std::string> args;
-                    // const Token* tok =parents[0]->tokenIn(tokens);
-                    // size_t ti = tok - &tokens[0];
-                    size_t ti = parents[0]->getTokIndex();
-                    parseCallArgs(tokens, ti+2, te, args); // J1. parse Condition
-                    if (args.size() > 0 && !strstr(args[0].c_str(), getTokenStr(c).c_str())) { // J. Condition contains pointerVariable
-                        printf("\t#unsafe Out-Of-Range. %s:%d:%d\n", file, c.line, c.column);
-                    }
-                    //}
-                }
-            }
-
-
-
-class CmptStmt : public Stmt {
-public:
-    CmptStmt(CmptStmt* parent, size_t tokIndex, TokenType tokType, const std::string& name, int braceDepth)
-        : Stmt(parent, ST_COMPOSITE, tokIndex, tokType, name, braceDepth) {
-    }
-
-protected:
-    CmptStmt(CmptStmt* parent, StatmentType stmtType, size_t tokIndex, TokenType tokType, const std::string& name, int braceDepth)
-        : Stmt(parent, stmtType, tokIndex, tokType, name, braceDepth) {
-    }
-
-public:
-    static CmptStmt* createDerivedCmptStmt(CmptStmt* parent, size_t tokIndex, TokenType tokType, const std::string& name, int braceDepth);
-
-    int addChild(Stmt* stmt) {
-        if (!stmt)
-            return -1;
-        children.push_back(stmt);
-        stmt->setParent(this);
-        return children.size()-1;
-    }
-
-    size_t getChildCount() {
-        return children.size();
-    }
-
-    std::vector<CmptStmt*> getParentWith(StatmentType stmtType) { // TokenType tokenType, const std::vector<Token>& tokens
-        std::vector<CmptStmt*> result;
-        // return (tokIndex < tokens.size()) ? &tokens[tokIndex] : nullptr;
-        // const Token* tok = stmtNodes->tokenIn(tokens);
-        // if (tok && tok->typ == TK_WHILE)
-        CmptStmt* parent = this;
-        while (parent) {
-            if (parent->stmtType == stmtType) {
-                result.push_back(parent);
-            }
-            parent = parent->getParent();
-        }
-        return result;
-    }
-
-private:
-    friend class Stmt;
-    friend void printAST(CmptStmt* body);
-    friend void destroyAST(CmptStmt* body);
-    std::vector<Stmt*> children;
-};
-
-Stmt::Stmt(CmptStmt* parent, StatmentType stmtType, size_t tokIndex, TokenType tokType, const std::string& name, int braceDepth)
-    : Node(parent, tokIndex, tokType, name, braceDepth, true), stmtType(stmtType) {
-    if (parent) {
-        parent->addChild(this);
-    }
-}
-
-CmptStmt* Stmt::getParent() {
-    return static_cast<CmptStmt*>(this->parent);
-}
-
-/*
-bool Stmt::setParent(CmptStmt* parent) {
-    if (!parent) {
-        return false;
-    }
-    Node* temp = Node::setParent(parent);
-    // parent->children.push_back(this);
-    if (!temp) {
-        delete temp;
-    }
-    return true;
-}
-*/
-
-class IfStmt : public CmptStmt {
-public:
-    IfStmt(CmptStmt* parent, size_t tokIndex, TokenType tokType, const std::string& name, int braceDepth)
-        : CmptStmt(parent, ST_IF, tokIndex, tokType, name, braceDepth) {
-    }
-
-private:
-    CmptStmt* branchStmt; // nullptr | else | else if
-};
-
-class ElseIfStmt : public CmptStmt {
-    CmptStmt* branchStmt; // nullptr | else | else if
-};
-
-class ElseStmt : public CmptStmt {
-};
-
-class ForStmt : public CmptStmt {
-public:
-    ForStmt(CmptStmt* parent, size_t tokIndex, TokenType tokType, const std::string& name, int braceDepth)
-        : CmptStmt(parent, ST_FOR, tokIndex, tokType, name, braceDepth) {
-    }
-
-private:
-    Stmt* init; // AssignStmt | CommaExpr | DeclareStmt
-    Expr* cond; // Expr
-    Stmt* step;
-};
-
-class WhileStmt : public CmptStmt {
-public:
-    WhileStmt(CmptStmt* parent, size_t tokIndex, TokenType tokType, const std::string& name, int braceDepth)
-        : CmptStmt(parent, ST_WHILE, tokIndex, tokType, name, braceDepth) {
-    }
-
-private:
-    Stmt* init; // AssignStmt | CommaExpr | DeclareStmt
-    Expr* cond; // Expr
-};
-
-CmptStmt* CmptStmt::createDerivedCmptStmt(CmptStmt* parent, size_t tokIndex, TokenType tokType, const std::string& name, int braceDepth) {
-    CmptStmt* result = nullptr;
-    switch (tokType) {
-        case TK_IF:
-            result = new IfStmt(parent, tokIndex, tokType, name, braceDepth);
-            break;
-        case TK_FOR:
-            result = new ForStmt(parent, tokIndex, tokType, name, braceDepth);
-            break;
-        case TK_WHILE:
-            result = new WhileStmt(parent, tokIndex, tokType, name, braceDepth);
-            break;
-        default:
-            result = new CmptStmt(parent, tokIndex, tokType, name, braceDepth);
-            break;
-    }
-    return result;
-}
-
-
-void destroyTypeStack(TypeNode* typeNodes) {
-     while (typeNodes) {
-        TypeNode* typeNode = typeNodes;
-        typeNodes = typeNodes->getParent();
-        delete typeNode;
-    }
-}
-
-void destroyStmtStack(CmptStmt* stmtNodes) {
-     while (stmtNodes) {
-        Stmt* stmtNode = stmtNodes;
-        stmtNodes = stmtNodes->getParent();
-        delete stmtNode;
-    }
-}
-
-bool getRangeOfVar(const Token& tok, const CmptStmt* stmtNodes, const std::vector<Token>& tokens) {
-    std::vector<std::string> args;
-    const CmptStmt* parent = stmtNodes;
-    parseCallArgs(tokens, stmtNodes->getTokIndex()+2, tokens.size(), args);
-    if (args.size() > 0) {
-        std::string cond = args[0];
-        //const char* condstr = cond.c_str();
-        //const char* p = strpbrk(condstr, "&|");
-        printf("condition: %s\n", args[0].c_str());
-        size_t idx = 0, idx0, idx1, idx2;
-        std::string cmpstr;
-        bool andOp;
-        while (idx != std::string::npos) {
-            idx0 = idx;
-            idx = cond.find("&&", idx);
-            if (idx == std::string::npos) {
-                idx = cond.find("||");
-                andOp = false;
+            if (half.gt) {
+                //return valueReal > halfReal || (half.eq && valueReal == halfReal);
+                return half.eq ? (valueReal >= halfReal) : (valueReal > halfReal);
             } else {
-                andOp = true;
+                //return valueReal < halfReal || (half.eq && valueReal == halfReal);
+                return half.eq ? (valueReal <= halfReal) : (valueReal < halfReal);
             }
-            if (idx != std::string::npos) {
-                cmpstr = cond.substr(idx0, idx);
-                idx += 2;
+        } else {
+            bool valueSig = !value.isUnsg;
+            bool halfSig = !half.value.isUnsg;
+            if (half.eqOnly) {
+                // signed should be first, to compare fast for both signed value.
+                if (valueSig && halfSig) { // !value.isUnsg && !half.value.isUnsg
+                    return half.eq ? value.SignedLLInt == half.value.SignedLLInt : value.SignedLLInt != half.value.SignedLLInt;
+                } else if (halfSig) { // value.isUnsg
+                    return half.eq ? half.value.SignedLLInt >= 0 && value.UnSignedLLInt <= LLONG_MAX && (long long)value.UnSignedLLInt == half.value.SignedLLInt
+                            : !(half.value.SignedLLInt >= 0 && value.UnSignedLLInt <= LLONG_MAX && (long long)value.UnSignedLLInt == half.value.SignedLLInt);
+                } else if (valueSig) { // half.value.isUnsg
+                    return half.eq ? value.SignedLLInt >= 0 && half.value.UnSignedLLInt <= LLONG_MAX && (long long)half.value.UnSignedLLInt == value.SignedLLInt
+                            : !(value.SignedLLInt >= 0 && half.value.UnSignedLLInt <= LLONG_MAX && (long long)half.value.UnSignedLLInt == value.SignedLLInt);
+                } else { // value.isUnsg && half.value.isUnsg
+                    return half.eq ? value.UnSignedLLInt == half.value.UnSignedLLInt : value.UnSignedLLInt != half.value.UnSignedLLInt;
+                }
+            }
+            if (half.gt) {
+                // signed should be first, to compare fast for both signed value.
+                if (valueSig && halfSig) { // !value.isUnsg && !half.value.isUnsg
+                    return half.eq ? (value.SignedLLInt >= half.value.SignedLLInt) : (value.SignedLLInt > half.value.SignedLLInt);
+                } else if (halfSig) {
+                    return half.eq ? half.value.SignedLLInt < 0 || value.UnSignedLLInt > LLONG_MAX || (long long)value.UnSignedLLInt >= half.value.SignedLLInt
+                            : !(half.value.SignedLLInt >= 0 && value.UnSignedLLInt <= LLONG_MAX && (long long)value.UnSignedLLInt <= half.value.SignedLLInt);
+                } else if (valueSig) {
+                    return half.eq ? value.SignedLLInt >= 0 && half.value.UnSignedLLInt <= LLONG_MAX && (long long)half.value.UnSignedLLInt <= value.SignedLLInt
+                            : !(value.SignedLLInt >= 0 && half.value.UnSignedLLInt <= LLONG_MAX && (long long)half.value.UnSignedLLInt >= value.SignedLLInt);
+                } else {
+                    return half.eq ? (value.UnSignedLLInt >= half.value.UnSignedLLInt) : (value.UnSignedLLInt > half.value.UnSignedLLInt);
+                }
             } else {
-                cmpstr = cond.substr(idx0);
-            }
-            idx1 = cmpstr.find_first_of("<>=");
-            if (idx1 != std::string::npos) {
-                idx2 = cmpstr.find_first_not_of("<>=", idx1);
-                if (idx2 != std::string::npos) {
-                    printf("lhs: %s, %s\n", cmpstr.substr(0, idx1).c_str(), cmpstr.substr(idx2).c_str());
+                // signed should be first, to compare fast for both signed value.
+                if (valueSig && halfSig) { // !value.isUnsg && !half.value.isUnsg
+                    return half.eq ? (value.SignedLLInt <= half.value.SignedLLInt) : (value.SignedLLInt < half.value.SignedLLInt);
+                } else if (halfSig) {
+                    return half.eq ? half.value.SignedLLInt >= 0 && value.UnSignedLLInt <= LLONG_MAX && (long long)value.UnSignedLLInt <= half.value.SignedLLInt
+                            : !(half.value.SignedLLInt >= 0 && value.UnSignedLLInt <= LLONG_MAX && (long long)value.UnSignedLLInt >= half.value.SignedLLInt);
+                } else if (valueSig) {
+                    return half.eq ? value.SignedLLInt < 0 || half.value.UnSignedLLInt > LLONG_MAX || (long long)half.value.UnSignedLLInt >= value.SignedLLInt
+                            : !(value.SignedLLInt >= 0 && half.value.UnSignedLLInt <= LLONG_MAX && (long long)half.value.UnSignedLLInt <= value.SignedLLInt);
+                } else {
+                    return half.eq ? (value.UnSignedLLInt <= half.value.UnSignedLLInt) : (value.UnSignedLLInt < half.value.UnSignedLLInt);
                 }
             }
         }
     }
-    return true;
+};
+
+struct Interval2 {
+    Interval lhs;
+    Interval rhs;
+};
+
+// put a to:  lhs -1, rhs 1, 0: empty set
+int mergeTest(Interval a, Interval b) {
 }
 
-std::unordered_map<std::string, std::string> g_bufferSizeMap;
+Interval2 merge(Interval a, Interval b) {
+    Interval2 res;
+    int i = mergeTest(a, b);
+    if (i < 0) {
+        res.lhs = a;
+        res.rhs = b;
+    } else if (i > 0) {
+        res.lhs = b;
+        res.rhs = a;
+    } else {
+        res.lhs.isEmpt = true;
+        res.rhs.isEmpt = true;
+    }
+    return res;
+}
+
+bool satify(long long value, Interval half) {
+    UnionValue val = {0};
+    val.SignedLLInt = value;
+    return Interval::satifyImpl(val, half);
+}
+
+bool satify(unsigned long long value, Interval half) {
+    UnionValue val = {0};
+    val.UnSignedLLInt = value;
+    val.isUnsg = true;
+    return Interval::satifyImpl(val, half);
+}
+
