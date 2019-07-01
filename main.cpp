@@ -698,10 +698,10 @@ struct Interval {
                     return half.eq ? (value.SignedLLInt >= half.value.SignedLLInt) : (value.SignedLLInt > half.value.SignedLLInt);
                 } else if (halfSig) {
                     return half.eq ? half.value.SignedLLInt < 0 || value.UnSignedLLInt > LLONG_MAX || (long long)value.UnSignedLLInt >= half.value.SignedLLInt
-                            : !(half.value.SignedLLInt >= 0 && value.UnSignedLLInt <= LLONG_MAX && (long long)value.UnSignedLLInt <= half.value.SignedLLInt);
+                            : half.value.SignedLLInt < 0 || value.UnSignedLLInt > LLONG_MAX || (long long)value.UnSignedLLInt > half.value.SignedLLInt;
                 } else if (valueSig) {
                     return half.eq ? value.SignedLLInt >= 0 && half.value.UnSignedLLInt <= LLONG_MAX && (long long)half.value.UnSignedLLInt <= value.SignedLLInt
-                            : !(value.SignedLLInt >= 0 && half.value.UnSignedLLInt <= LLONG_MAX && (long long)half.value.UnSignedLLInt >= value.SignedLLInt);
+                            : value.SignedLLInt >= 0 && half.value.UnSignedLLInt <= LLONG_MAX && (long long)half.value.UnSignedLLInt < value.SignedLLInt;
                 } else {
                     return half.eq ? (value.UnSignedLLInt >= half.value.UnSignedLLInt) : (value.UnSignedLLInt > half.value.UnSignedLLInt);
                 }
@@ -711,10 +711,10 @@ struct Interval {
                     return half.eq ? (value.SignedLLInt <= half.value.SignedLLInt) : (value.SignedLLInt < half.value.SignedLLInt);
                 } else if (halfSig) {
                     return half.eq ? half.value.SignedLLInt >= 0 && value.UnSignedLLInt <= LLONG_MAX && (long long)value.UnSignedLLInt <= half.value.SignedLLInt
-                            : !(half.value.SignedLLInt >= 0 && value.UnSignedLLInt <= LLONG_MAX && (long long)value.UnSignedLLInt >= half.value.SignedLLInt);
+                            : half.value.SignedLLInt >= 0 && value.UnSignedLLInt <= LLONG_MAX && (long long)value.UnSignedLLInt < half.value.SignedLLInt;
                 } else if (valueSig) {
                     return half.eq ? value.SignedLLInt < 0 || half.value.UnSignedLLInt > LLONG_MAX || (long long)half.value.UnSignedLLInt >= value.SignedLLInt
-                            : !(value.SignedLLInt >= 0 && half.value.UnSignedLLInt <= LLONG_MAX && (long long)half.value.UnSignedLLInt <= value.SignedLLInt);
+                            : value.SignedLLInt < 0 || half.value.UnSignedLLInt > LLONG_MAX && (long long)half.value.UnSignedLLInt > value.SignedLLInt;
                 } else {
                     return half.eq ? (value.UnSignedLLInt <= half.value.UnSignedLLInt) : (value.UnSignedLLInt < half.value.UnSignedLLInt);
                 }
