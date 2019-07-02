@@ -635,16 +635,41 @@ int main(int argc, char **argv)
 }
 
 
+
 struct UnionValue {
-    bool isUnkn: 1;     // 0 normal         1 Empty set / Unkown
+    bool isUnkn: 1;     // 0 normal         1 Unkown (Not initilized)
+    bool isInfm: 1;     // 0 normal         1 Infinite of Int or Real, both with LongDouble Format
     bool isReal: 1;     // 0 Int            1 Real
     bool isUnsg: 1;     // 0 signed         1 unSigned
-    bool isInfm: 1;     // 0 normal         1 Infinite when min/max for Int
     union {
         long long SignedLLInt;
         unsigned long long UnSignedLLInt;
         long double LongDouble;
     };
+
+    UnionValue() : SignedLLInt(0), isUnkn(false), isReal(false), isUnsg(false), isInfm(false) {
+    }
+    
+    UnionValue(long long SignedLLInt, bool isInfm = false) : SignedLLInt(SignedLLInt), isUnkn(false), isReal(false), isUnsg(false), isInfm(isInfm) {
+        if (isInfm) {
+            if (SignedLLInt >= 0) this->LongDouble = INFINITY;
+            else this->LongDouble = -INFINITY;
+        }
+    }
+    
+    UnionValue(unsigned long long UnSignedLLInt, bool isInfm = false) : UnSignedLLInt(UnSignedLLInt), isUnkn(false), isReal(false), isUnsg(true), isInfm(isInfm) {
+        if (isInfm) {
+            if (SignedLLInt >= 0) this->LongDouble = INFINITY;
+            else this->LongDouble = -INFINITY;
+        }
+    }
+    
+    UnionValue(long double LongDouble, bool isInfm = false) : LongDouble(LongDouble), isUnkn(false), isReal(true), isUnsg(false), isInfm(isInfm) {
+        if (isInfm) {
+            if (SignedLLInt >= 0) this->LongDouble = INFINITY;
+            else this->LongDouble = -INFINITY;
+        }
+    }
 };
 
 struct Interval {
@@ -655,12 +680,12 @@ struct Interval {
     UnionValue value;
 
     static bool satifyImpl(UnionValue value, Interval half) {
-        if (half.isEmpt) {
+        if (half.isEmpt || value.isUnkn || half.value.isUnkn) {
             return false;
         }
         if (value.isReal || half.value.isReal) {
-            long double valueReal = (value.isReal ? value.LongDouble : (value.isUnsg ? value.UnSignedLLInt : value.SignedLLInt));
-            long double halfReal = (half.value.isReal ? half.value.LongDouble : (half.value.isUnsg ? half.value.UnSignedLLInt : half.value.SignedLLInt));
+            long double valueReal = ((value.isReal || value.isInfm) ? value.LongDouble : (value.isUnsg ? value.UnSignedLLInt : value.SignedLLInt));
+            long double halfReal = ((half.value.isReal || value.isInfm) ? half.value.LongDouble : (half.value.isUnsg ? half.value.UnSignedLLInt : half.value.SignedLLInt));
             if (half.eqOnly) {
                 if (half.eq) {
                     return valueReal == halfReal;
@@ -714,7 +739,7 @@ struct Interval {
                             : half.value.SignedLLInt >= 0 && value.UnSignedLLInt <= LLONG_MAX && (long long)value.UnSignedLLInt < half.value.SignedLLInt;
                 } else if (valueSig) {
                     return half.eq ? value.SignedLLInt < 0 || half.value.UnSignedLLInt > LLONG_MAX || (long long)half.value.UnSignedLLInt >= value.SignedLLInt
-                            : value.SignedLLInt < 0 || half.value.UnSignedLLInt > LLONG_MAX && (long long)half.value.UnSignedLLInt > value.SignedLLInt;
+                            : value.SignedLLInt < 0 || half.value.UnSignedLLInt > LLONG_MAX || (long long)half.value.UnSignedLLInt > value.SignedLLInt;
                 } else {
                     return half.eq ? (value.UnSignedLLInt <= half.value.UnSignedLLInt) : (value.UnSignedLLInt < half.value.UnSignedLLInt);
                 }
@@ -749,15 +774,14 @@ Interval2 merge(Interval a, Interval b) {
 }
 
 bool satify(long long value, Interval half) {
-    UnionValue val = {0};
-    val.SignedLLInt = value;
+    UnionValue val{value, false};
+    //val.SignedLLInt = value;
     return Interval::satifyImpl(val, half);
 }
 
 bool satify(unsigned long long value, Interval half) {
-    UnionValue val = {0};
-    val.UnSignedLLInt = value;
-    val.isUnsg = true;
+    UnionValue val{value, false};
+    //val.UnSignedLLInt = value;
+    //val.isUnsg = true;
     return Interval::satifyImpl(val, half);
 }
-
