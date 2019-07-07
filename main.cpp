@@ -785,3 +785,301 @@ bool satify(unsigned long long value, Interval half) {
     //val.isUnsg = true;
     return Interval::satifyImpl(val, half);
 }
+
+
+/////////////////////////
+
+struct Value {
+    union {
+        long long intVal;
+        unsigned long long uintVal;
+        long double doubleVal;
+        //void* pointerVal;
+    };
+    bool isUnsigned : 1;
+    bool isReal : 1;
+    // bool isPointer : 1;
+    // bool isInf : 1;
+    // bool isInfsimals : 1;
+    bool operator==(const Value& rhs) const {
+        if (this->isReal || rhs.isReal) {
+            long double valueReal = ((this->isReal) ? this->doubleVal : (this->isUnsigned ? this->uintVal : this->intVal));
+            long double halfReal = ((rhs.isReal) ? rhs.doubleVal : (rhs.isUnsigned ? rhs.uintVal : rhs.intVal));
+            return (valueReal - halfReal) >= 0 ? (valueReal - halfReal) < 0.000001f : (halfReal - valueReal) < 0.000001f;
+        }
+        return this->uintVal == rhs.uintVal && this->isUnsigned == rhs.isUnsigned;
+    }
+
+    bool operator!=(const Value& rhs) const {
+        return !(*this == rhs);
+    }
+
+    bool operator>(const Value& rhs) const {
+        if (this->isReal || rhs.isReal) {
+            long double valueReal = ((this->isReal) ? this->doubleVal : (this->isUnsigned ? this->uintVal : this->intVal));
+            long double halfReal = ((rhs.isReal) ? rhs.doubleVal : (rhs.isUnsigned ? rhs.uintVal : rhs.intVal));
+            return (valueReal > halfReal);
+        }
+        bool thisSig = !this->isUnsigned;
+        bool rhsSig = !rhs.isUnsigned;
+
+        // signed should be first, to compare fast for both signed value.
+        if (thisSig && rhsSig) { // !this->isUnsigned && !rhs.isUnsigned
+            return (this->intVal > rhs.intVal);
+        } else if (rhsSig) {
+            return rhs.intVal < 0 || this->uintVal > LLONG_MAX || (long long)this->uintVal > rhs.intVal;
+        } else if (thisSig) {
+            return this->intVal >= 0 && rhs.uintVal <= LLONG_MAX && (long long)rhs.uintVal < this->intVal;
+        } else {
+            return (this->uintVal > rhs.uintVal);
+        }
+        //return this->uintVal == rhs.uintVal && this->isUnsigned == rhs.isUnsigned;
+    }
+
+    bool operator<(const Value& rhs) const {
+        return !(*this == rhs) && !(rhs > *this);
+    }
+
+    bool operator>=(const Value& rhs) const {
+        return (*this == rhs) || (*this > rhs);
+    }
+
+    bool operator<=(const Value& rhs) const {
+        return (*this == rhs) || (*this < rhs);
+    }
+};
+
+struct Relation {
+    bool isOr : 1; // and or
+    bool eqOnly : 1; // only noeq eq
+    bool isEq : 1; // noeq eq
+    bool ltGt : 1;
+    Value val;
+
+    bool satisfy(Value value) {
+        if (this->eqOnly) {
+            if (this->isEq) { // Eq
+                if (this->val == value) {
+                    return true;
+                }
+            } else { // NoEq
+                if (this->val != value) {
+                    return true;
+                }
+            }
+        } else {
+            if (!this->ltGt) { // Lt
+                if (this->isEq && this->val == value) {
+                    return true;
+                } else if (this->val > value) {
+                    return true;
+                }
+            } else { // Gt
+                if (this->isEq && this->val == value)
+                    return true;
+                else if (this->val < value)
+                    return true;
+            }
+        }
+        return false;
+    }
+};
+
+// -1 L, 0 E, 1 R, 2 B, 3 W
+int commonSetOfRelation(Relation r1, Relation r2) {
+    if (r1.eqOnly || r2.eqOnly) {
+        if (r1.eqOnly && r2.eqOnly) { // r1 ==, != ; r2 ==, !=
+            if (r2.isOr) { // Or
+                if (r1.isEq && r2.isEq) {
+                    return r1.val == r2.val ? -1 : 2;
+                } else if (r1.isEq && !r2.isEq) {
+                    return r1.val == r2.val ? 3 : 1;
+                } else if (!r1.isEq && r2.isEq) {
+                    return r1.val == r2.val ? 3 : -1;
+                } else {
+                    return r1.val == r2.val ? -1 : 2;
+                }
+            } else { // And
+                if (r1.isEq && r2.isEq) {
+                    return r1.val == r2.val ? -1 : 0;
+                } else if (r1.isEq && !r2.isEq) {
+                    return r1.val == r2.val ? 0 : -1;
+                } else if (!r1.isEq && r2.isEq) {
+                    return r1.val == r2.val ? 0 : 1;
+                } else {
+                    return r1.val == r2.val ? -1 : 2;
+                }
+            }
+        } else if (r1.eqOnly) { // r1 ==, != ; r2 ?
+            if (r2.isOr) { // Or
+                if (r1.isEq && r2.isEq) { // r2 <=, >=
+                    return (r1.val == r2.val || r2.satisfy(r1.val)) ? 1 : 2;
+                } else if (r1.isEq && !r2.isEq) { // r2 <, >
+                    return r2.satisfy(r1.val) ? 1 : 2;
+                } else if (!r1.isEq && r2.isEq) { // r2 <=, >=
+                    return (r1.val == r2.val || r2.satisfy(r1.val)) ? 3 : -1;
+                } else { // r2 <, >
+                    return r2.satisfy(r1.val) ? 1 : 2;
+                }
+            } else {
+                if (r1.isEq && r2.isEq) { // r2 <=, >=
+                    return (r1.val == r2.val || r2.satisfy(r1.val)) ? -1 : 0;
+                } else if (r1.isEq && !r2.isEq) { // r2 <, >
+                    return r2.satisfy(r1.val) ? -1 : 0;
+                } else if (!r1.isEq && r2.isEq) { // r2 <=, >=
+                    return (r1.val == r2.val || r2.satisfy(r1.val)) ? 2 : 1;
+                } else { // r2 <, >
+                    return r2.satisfy(r1.val) ? 2 : 1;
+                }
+            }
+        } else { // r2.eqOnly: r2 ==, != ; r1 ?
+            if (r2.isOr) { // Or
+                if (r1.isEq && r2.isEq) { // r1 <=, >=
+                    return (r1.val == r2.val || r1.satisfy(r2.val)) ? -1 : 2;
+                } else if (r1.isEq && !r2.isEq) { // r1 <=, >=
+                    return (r1.val == r2.val || r1.satisfy(r2.val)) ? 3 : 1;
+                } else if (!r1.isEq && r2.isEq) { // r1 <, >
+                    return r1.satisfy(r2.val) ? -1 : 2;
+                } else { // r1 <, >
+                    return r1.satisfy(r2.val) ? -1 : 2;
+                }
+            } else {
+                if (r1.isEq && r2.isEq) { // r1 <=, >=
+                    return (r1.val == r2.val || r1.satisfy(r2.val)) ? 1 : 0;
+                } else if (r1.isEq && !r2.isEq) { // r1 <=, >=
+                    return (r1.val == r2.val || r1.satisfy(r2.val)) ? 2 : -1;
+                } else if (!r1.isEq && r2.isEq) { // r1 <, >
+                    return r1.satisfy(r2.val) ? 1 : 0;
+                } else { // r1 <, >
+                    return r1.satisfy(r2.val) ? 2 : -1;
+                }
+            }
+        }
+    } else {
+        if (r1.ltGt == r2.ltGt) {
+            if (!r1.ltGt) { // r1 <, <= ; r2 <, <=
+                if (r2.isOr) { // Or
+                    if (r1.isEq && r2.isEq) { // r1 <= ; r2 <=
+                        return (r1.val == r2.val || r1.satisfy(r2.val)) ? -1 : 1;
+                    } else if (r1.isEq && !r2.isEq) { // r1 <= ; r2 <
+                        return r1.satisfy(r2.val) ? -1 : 1;
+                    } else if (!r1.isEq && r2.isEq) { // r1 < ; r2 <=
+                        return (r1.val == r2.val || r2.satisfy(r1.val)) ? 1 : -1;
+                    } else { // r1 < ; r2 <
+                        return r1.satisfy(r2.val) ? -1 : 1;
+                    }
+                } else { // And
+                    if (r1.isEq && r2.isEq) { // r1 <= ; r2 <=
+                        return (r1.val == r2.val || r1.satisfy(r2.val)) ? 1 : -1;
+                    } else if (r1.isEq && !r2.isEq) { // r1 <= ; r2 <
+                        return r1.satisfy(r2.val) ? 1 : -1;
+                    } else if (!r1.isEq && r2.isEq) { // r1 < ; r2 <=
+                        return (r1.val == r2.val || r2.satisfy(r1.val)) ? -1 : 1;
+                    } else { // r1 < ; r2 <
+                        return r1.satisfy(r2.val) ? 1 : -1;
+                    }
+                }
+            } else { // r1 >, >= ; r2 >, >=    NOTE: r1.ltGt is the same as if (!r1.ltGt)
+                if (r2.isOr) { // Or
+                    if (r1.isEq && r2.isEq) { // r1 <= ; r2 <=
+                        return (r1.val == r2.val || r1.satisfy(r2.val)) ? -1 : 1;
+                    } else if (r1.isEq && !r2.isEq) { // r1 <= ; r2 <
+                        return r1.satisfy(r2.val) ? -1 : 1;
+                    } else if (!r1.isEq && r2.isEq) { // r1 < ; r2 <=
+                        return (r1.val == r2.val || r2.satisfy(r1.val)) ? 1 : -1;
+                    } else { // r1 < ; r2 <
+                        return r1.satisfy(r2.val) ? -1 : 1;
+                    }
+                } else { // And
+                    if (r1.isEq && r2.isEq) { // r1 <= ; r2 <=
+                        return (r1.val == r2.val || r1.satisfy(r2.val)) ? 1 : -1;
+                    } else if (r1.isEq && !r2.isEq) { // r1 <= ; r2 <
+                        return r1.satisfy(r2.val) ? 1 : -1;
+                    } else if (!r1.isEq && r2.isEq) { // r1 < ; r2 <=
+                        return (r1.val == r2.val || r2.satisfy(r1.val)) ? -1 : 1;
+                    } else { // r1 < ; r2 <
+                        return r1.satisfy(r2.val) ? 1 : -1;
+                    }
+                }
+            }
+        } else if (r1.ltGt) { // r1 >, >= ; r2 <, <=
+            if (r2.isOr) { // Or
+                if (r1.isEq && r2.isEq) { // r1 >= ; r2 <=
+                    return (r1.val == r2.val || r1.satisfy(r2.val)) ? 3 : 2;
+                    //return 2;
+                } else if (r1.isEq && !r2.isEq) { // r1 >= ; r2 <
+                    return (r1.val == r2.val || r1.satisfy(r2.val)) ? 3 : 2;
+                    //return r1.satisfy(r2.val) ? -1 : 1;
+                    //return 2;
+                } else if (!r1.isEq && r2.isEq) { // r1 > ; r2 <=
+                    return (r1.val == r2.val || r2.satisfy(r1.val)) ? 3 : 2;
+                    //return 2;
+                } else { // r1 > ; r2 <
+                    return r1.satisfy(r2.val) ? 3 : 2;
+                    //return 2;
+                }
+                //return 2;
+            } else { // And
+                if (r1.isEq && r2.isEq) { // r1 >= ; r2 <=
+                    //return (r1.val == r2.val || r1.satisfy(r2.val)) ? 2 : 2; // 1 : -1
+                    return 2;
+                } else if (r1.isEq && !r2.isEq) { // r1 >= ; r2 <
+                    return r1.satisfy(r2.val) ? 2 : 0;
+                } else if (!r1.isEq && r2.isEq) { // r1 > ; r2 <=
+                    return (r1.val == r2.val || r2.satisfy(r1.val)) ? 0 : 2;
+                } else { // r1 > ; r2 <
+                    return r1.satisfy(r2.val) ? 2 : 0;
+                }
+            }
+        } else { // r1 <, <= ; r2 >, >= 
+            if (r2.isOr) { // Or
+                if (r1.isEq && r2.isEq) { // r1 <= ; r2 >=
+                    return (r1.val == r2.val || r1.satisfy(r2.val)) ? 3 : 2;
+                    //return 2;
+                } else if (r1.isEq && !r2.isEq) { // r1 <= ; r2 >
+                    return (r1.val == r2.val || r1.satisfy(r2.val)) ? 3 : 2;
+                    //return r1.satisfy(r2.val) ? -1 : 1;
+                    //return 2;
+                } else if (!r1.isEq && r2.isEq) { // r1 < ; r2 >=
+                    return (r1.val == r2.val || r2.satisfy(r1.val)) ? 3 : 2;
+                    //return 2;
+                } else { // r1 < ; r2 >
+                    return r1.satisfy(r2.val) ? 3 : 2;
+                    //return 2;
+                }
+                //return 2;
+            } else { // And
+                if (r1.isEq && r2.isEq) { // r1 <= ; r2 >=
+                    //return (r1.val == r2.val || r1.satisfy(r2.val)) ? 2 : 2; // 1 : -1
+                    return 2;
+                } else if (r1.isEq && !r2.isEq) { // r1 <= ; r2 >
+                    return r1.satisfy(r2.val) ? 2 : 0;
+                } else if (!r1.isEq && r2.isEq) { // r1 < ; r2 >=
+                    return (r1.val == r2.val || r2.satisfy(r1.val)) ? 0 : 2;
+                } else { // r1 < ; r2 >
+                    return r1.satisfy(r2.val) ? 2 : 0;
+                }
+            }
+        }
+    }
+    return 2;
+}
+
+std::vector<Relation> addRelation(std::vector<Relation> relations, Relation r) {
+    std::vector<Relation> res;
+    if (relations.size() == 0) {
+        relations.push_back(r);
+        return relations;
+    }
+    for (const auto& rel : relations) {
+        if (!r.isOr) { // and
+        }
+    }
+    return res;
+} 
+
+std::vector<Relation> simpleCommonSet(std::vector<Relation> relations) {
+    std::vector<Relation> res;
+    return res;
+} 
+
