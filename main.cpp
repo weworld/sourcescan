@@ -1185,6 +1185,30 @@ std::vector<Relation> simpleCommonSet(std::vector<Relation> relations) {
                     } 
                 }
             }
+	
+	
+	
+	////
+                    std::vector<Relation> relations;
+                    Relation rel;
+                    rel.val.setValue((long long)0L);
+                    rel.eqOnly = false;
+                    rel.isEq = true;
+                    rel.ltGt = true;
+                    relations.push_back(rel);
+
+                    if (itLhs != end) { // last is Array, index by next
+                        std::cout << "range: " << itLhs->first << "[0," << itLhs->second << ")" << std::endl;
+                        long long value = 0L;
+                        if (getConstValueOf(itLhs->second, value))
+                            rel.val.setValue(value);
+                        else
+                            rel.val.setValue(value);
+                        rel.eqOnly = false;
+                        rel.isEq = false;
+                        rel.ltGt = false;
+                        relations.push_back(rel);
+                        getRangeOfVar(*n, stmtNodes, tokens, relations);
 } 
 
 bool getConstValueOf(const std::string valueStr, long long& value) {
