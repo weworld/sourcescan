@@ -798,6 +798,38 @@ struct Value {
     };
     bool isUnsigned : 1;
     bool isReal : 1;
+
+
+    Value() : Value((long long)0L) {
+    }
+
+    Value(long long value) : intVal(value), isUnsigned(false), isReal(false) {
+    }
+
+    Value(unsigned long long value) : uintVal(value), isUnsigned(true), isReal(false) {
+    }
+
+    Value(long double value) : doubleVal(value), isUnsigned(false), isReal(true) {
+    }
+
+    void setValue(long long value) {
+        intVal = value;
+        isUnsigned = false;
+        isReal = false;
+    }
+
+    void setValue(unsigned long long value) {
+        uintVal = value;
+        isUnsigned = true;
+        isReal = false;
+    }
+
+    void setValue(long double value) {
+        doubleVal = value;
+        isUnsigned = false;
+        isReal = true;
+    }
+
     // bool isPointer : 1;
     // bool isInf : 1;
     // bool isInfsimals : 1;
@@ -837,7 +869,7 @@ struct Value {
     }
 
     bool operator<(const Value& rhs) const {
-        return !(*this == rhs) && !(rhs > *this);
+        return !(*this == rhs) && (rhs > *this);
     }
 
     bool operator>=(const Value& rhs) const {
@@ -850,11 +882,40 @@ struct Value {
 };
 
 struct Relation {
+    std::string varName;
     bool isOr : 1; // and or
     bool eqOnly : 1; // only noeq eq
     bool isEq : 1; // noeq eq
     bool ltGt : 1;
     Value val;
+
+    Relation() : isOr(false), eqOnly(false), isEq(false), ltGt(false) { // < 0
+    }
+
+    std::string getExprStr() const {
+        std::string res;
+        res += varName;
+        res += ' ';
+        if (eqOnly)
+            res += '=';
+        else if (ltGt)
+            res += '>';
+        else
+            res += '<';
+        if (isEq) {
+            res += '=';
+        }
+        res += ' ';
+        char valCB[64];
+        if (val.isReal)
+            snprintf(valCB, 64, "%Lf", val.doubleVal);
+        else if (val.isUnsigned)
+            snprintf(valCB, 64, "%lld", val.uintVal);
+        else
+            snprintf(valCB, 64, "%llu", val.intVal);
+        res += valCB;
+        return res;
+    }
 
     bool satisfy(Value value) {
         if (this->eqOnly) {
@@ -886,7 +947,7 @@ struct Relation {
 };
 
 // -1 L, 0 E, 1 R, 2 B, 3 W
-int commonSetOfRelation(Relation r1, Relation r2) {
+int commonSetOfRelation(const Relation& r1, const Relation& r2) {
     if (r1.eqOnly || r2.eqOnly) {
         if (r1.eqOnly && r2.eqOnly) { // r1 ==, != ; r2 ==, !=
             if (r2.isOr) { // Or
@@ -981,23 +1042,23 @@ int commonSetOfRelation(Relation r1, Relation r2) {
                 }
             } else { // r1 >, >= ; r2 >, >=    NOTE: r1.ltGt is the same as if (!r1.ltGt)
                 if (r2.isOr) { // Or
-                    if (r1.isEq && r2.isEq) { // r1 <= ; r2 <=
+                    if (r1.isEq && r2.isEq) { // r1 >= ; r2 >=
                         return (r1.val == r2.val || r1.satisfy(r2.val)) ? -1 : 1;
-                    } else if (r1.isEq && !r2.isEq) { // r1 <= ; r2 <
+                    } else if (r1.isEq && !r2.isEq) { // r1 >= ; r2 >
                         return r1.satisfy(r2.val) ? -1 : 1;
-                    } else if (!r1.isEq && r2.isEq) { // r1 < ; r2 <=
+                    } else if (!r1.isEq && r2.isEq) { // r1 > ; r2 >=
                         return (r1.val == r2.val || r2.satisfy(r1.val)) ? 1 : -1;
-                    } else { // r1 < ; r2 <
+                    } else { // r1 > ; r2 >
                         return r1.satisfy(r2.val) ? -1 : 1;
                     }
                 } else { // And
-                    if (r1.isEq && r2.isEq) { // r1 <= ; r2 <=
-                        return (r1.val == r2.val || r1.satisfy(r2.val)) ? 1 : -1;
-                    } else if (r1.isEq && !r2.isEq) { // r1 <= ; r2 <
-                        return r1.satisfy(r2.val) ? 1 : -1;
-                    } else if (!r1.isEq && r2.isEq) { // r1 < ; r2 <=
+                    if (r1.isEq && r2.isEq) { // r1 >= ; r2 >=
                         return (r1.val == r2.val || r2.satisfy(r1.val)) ? -1 : 1;
-                    } else { // r1 < ; r2 <
+                    } else if (r1.isEq && !r2.isEq) { // r1 >= ; r2 >
+                        return r1.satisfy(r2.val) ? 1 : -1;
+                    } else if (!r1.isEq && r2.isEq) { // r1 > ; r2 >=
+                        return (r1.val == r2.val || r2.satisfy(r1.val)) ? -1 : 1;
+                    } else { // r1 > ; r2 >
                         return r1.satisfy(r2.val) ? 1 : -1;
                     }
                 }
@@ -1055,7 +1116,7 @@ int commonSetOfRelation(Relation r1, Relation r2) {
                 } else if (r1.isEq && !r2.isEq) { // r1 <= ; r2 >
                     return r1.satisfy(r2.val) ? 2 : 0;
                 } else if (!r1.isEq && r2.isEq) { // r1 < ; r2 >=
-                    return (r1.val == r2.val || r2.satisfy(r1.val)) ? 0 : 2;
+                    return (r1.val == r2.val || r2.satisfy(r1.val)) ? 2 : 0;
                 } else { // r1 < ; r2 >
                     return r1.satisfy(r2.val) ? 2 : 0;
                 }
@@ -1079,7 +1140,50 @@ std::vector<Relation> addRelation(std::vector<Relation> relations, Relation r) {
 } 
 
 std::vector<Relation> simpleCommonSet(std::vector<Relation> relations) {
-    std::vector<Relation> res;
-    return res;
+    //std::vector<Relation> res;
+    //return res; getRangeOfVar
+            if (idx1 != std::string::npos) {
+                idx2 = cmpstr.find_first_not_of("<>=", idx1);
+                if (idx2 != std::string::npos) {
+                    cmpOp = cmpstr.substr(idx1, idx2-idx1);
+                    cmpLhs = cmpstr.substr(0, idx1);
+                    cmpRhs = cmpstr.substr(idx2);
+                    printf("%s:: %s [%s] %s \n", ((cmpLhs == varName) ? "L" : "R"), cmpLhs.c_str(), cmpOp.c_str(), cmpRhs.c_str());
+                    if (cmpLhs == varName) {
+                        valueStr = cmpRhs;
+                    } else {
+                        valueStr = cmpLhs;
+                        if (cmpOp == "==") {
+                            // Noop
+                        } else if (cmpOp == "<") {
+                            cmpOp = ">";
+                        } else if (cmpOp == ">") {
+                            cmpOp = "<";
+                        } else if (cmpOp == "<=") {
+                            cmpOp = ">=";
+                        } else if (cmpOp == ">=") {
+                            cmpOp = "<=";
+                        }
+                    }
+                    Relation r;
+                    long long value = 0L;
+                    if (getConstValueOf(valueStr, value))
+                        r.val.setValue(value);
+                    else
+                        r.val.setValue(value);
+                    r.isOr = !andOp;
+                    r.isEq = (cmpOp[0] == '=' || (cmpOp.size() > 1 && cmpOp[1] == '='));
+                    r.eqOnly = (!(cmpOp[0] == '<' || cmpOp[0] == '>'));
+                    r.ltGt = (cmpOp[0] == '>');
+                    r.varName = varName;
+                    printf("COND: %s\n", r.getExprStr().c_str());
+                    for (const auto& rel : relations) {
+                        int res = commonSetOfRelation(rel, r);
+                        if (res != -1) {
+                            printf("VUL{%s}{%s} %d\n", rel.getExprStr().c_str(), r.getExprStr().c_str(), res);
+                        }
+                    } 
+                }
+            }
 } 
 
