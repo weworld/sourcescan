@@ -1187,3 +1187,17 @@ std::vector<Relation> simpleCommonSet(std::vector<Relation> relations) {
             }
 } 
 
+bool getConstValueOf(const std::string valueStr, long long& value) {
+    if (valueStr[0] <= '9' && valueStr[0] >= '0') {
+        value = atoi(valueStr.c_str());
+        return true;
+    } else {
+        auto end = g_constMap.end();
+        decltype(end) itr;
+        if ((itr = g_constMap.find(valueStr)) != end) {
+            value = atoi(itr->second.c_str());
+            return true;
+        }
+    }
+    return false;
+}
