@@ -889,7 +889,19 @@ struct Relation {
     bool ltGt : 1;
     Value val;
 
-    Relation() : isOr(false), eqOnly(false), isEq(false), ltGt(false) { // < 0
+    Relation() : isUse(true), isOr(false), eqOnly(false), isEq(false), ltGt(false) { // < 0
+    }
+
+    bool operator==(const Relation& lhs) {
+        if ((!this->isUse && !lhs.isUse) || (this->isOr == lhs.isOr &&
+            this->eqOnly == lhs.eqOnly &&
+            this->isEq == lhs.isEq &&
+            this->ltGt == lhs.ltGt &&
+            this->val == lhs.val)
+        ) {
+            return true;
+        }
+        return false;
     }
 
     std::string getExprStr() const {
@@ -945,6 +957,79 @@ struct Relation {
         return false;
     }
 };
+
+void sortRange(std::pair<Relation, Relation>& range1);
+void intersectRelation(std::pair<Relation, Relation>& range, Relation rel);
+void intersectRange(std::pair<Relation, Relation>& range1, std::pair<Relation, Relation>& range2);
+bool rangeEqual(std::pair<Relation, Relation>& range1, std::pair<Relation, Relation>& range2);
+// -1 L, 0 E, 1 R, 2 B, 3 W
+int commonSetOfRelation(const Relation& r1, const Relation& r2);
+std::vector<Relation> addRelation(std::vector<Relation>& relations, Relation r);
+std::vector<Relation> simpleCommonSet(std::vector<Relation> relations);
+
+void sortRange(std::pair<Relation, Relation>& range1) {
+    if (range1.first.val > range1.second.val) {
+        // retain Or/And after swap: first logic first, then second logic
+        bool firstOr = range1.first.isOr;
+        bool secondOr = range1.second.isOr;
+        std::swap(range1.first, range1.second);
+        range1.first.isOr = firstOr;
+        range1.second.isOr = secondOr;
+    }
+}
+
+void intersectRelation(std::pair<Relation, Relation>& range, Relation rel) {
+    sortRange(range);
+    if (!rel.ltGt) { // <=
+        if (range.second.isUse && rel.val >= range.second.val)
+            return;
+        else {
+            if (!range.first.isUse || rel.val >= range.first.val) {
+                rel.isOr = range.second.isOr;
+                range.second = rel;
+            } else {
+                range.first.isUse = false;
+                range.second.isUse = false;
+            }
+        }
+    } else { // >=
+        if (range.first.isUse && rel.val <= range.first.val)
+            return;
+        else {
+            if (!range.second.isUse || rel.val <= range.second.val) {
+                rel.isOr = range.first.isOr;
+                range.first = rel;
+            } else {
+                range.first.isUse = false;
+                range.second.isUse = false;
+            }
+        }
+    }
+    // int res1 = commonSetOfRelation(range.first, rel);
+    // int res2 = commonSetOfRelation(range.second, rel);
+    // if ((res1 == -1 && res2 == 2) || (res2 == -1 && res1 == 2)) {
+    //     return;
+    // }
+    // else if (res1 == 0) {
+    //     range.first = rel;
+    // } // 3 2 1
+}
+
+void intersectRange(std::pair<Relation, Relation>& range1, std::pair<Relation, Relation>& range2) {
+    intersectRelation(range1, range2.first);
+    // if (!range2.second.isOr) {
+    intersectRelation(range1, range2.second);
+    // }
+}
+
+bool rangeEqual(std::pair<Relation, Relation>& range1, std::pair<Relation, Relation>& range2) {
+    sortRange(range1);
+    sortRange(range2);
+    if (range1.first == range2.first && range1.second == range2.second) {
+        return true;
+    }
+    return false;
+}
 
 // -1 L, 0 E, 1 R, 2 B, 3 W
 int commonSetOfRelation(const Relation& r1, const Relation& r2) {
