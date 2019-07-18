@@ -1310,3 +1310,29 @@ bool getConstValueOf(const std::string valueStr, long long& value) {
     }
     return false;
 }
+
+	//
+            if (ti >= 0) { // ts > 1
+                last = &tokens[ti];
+            } else {
+                last = NULL;
+            }
+            ti = (n? ni : ts);
+            Token &c = tokens[ti];
+            if (n == nullptr && (c.typ == TK_SINGLELINE_COMMENT || c.typ == TK_MULTILINES_COMMENT)) { // filter comment
+                ++ts;
+                continue;
+            }
+            if (ts+1 < te) {
+                ni = ts+1;
+                n = &tokens[ni];
+                while (n->typ == TK_SINGLELINE_COMMENT || n->typ == TK_MULTILINES_COMMENT) {
+                    if (ni >= te-1) {
+                        n = NULL;
+                        break;
+                    }
+                    n = &tokens[++ni];
+                }
+            } else {
+                n = NULL;
+            }
