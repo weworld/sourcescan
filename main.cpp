@@ -1312,7 +1312,7 @@ bool getConstValueOf(const std::string valueStr, long long& value) {
 }
 
 	//
-            if (ti >= 0) { // ts > 1
+            if (ti >= 0) { // ts >= 1
                 last = &tokens[ti];
             } else {
                 last = NULL;
@@ -1323,14 +1323,15 @@ bool getConstValueOf(const std::string valueStr, long long& value) {
                 ++ts;
                 continue;
             }
-            if (ts+1 < te) {
-                ni = ts+1;
+            if (ti+1 < te) {
+                ni = ti+1;
                 n = &tokens[ni];
                 while (n->typ == TK_SINGLELINE_COMMENT || n->typ == TK_MULTILINES_COMMENT) {
-                    if (ni >= te-1) {
+                    if (ni >= te-1) { // no more
                         n = NULL;
                         break;
                     }
+                    // more
                     n = &tokens[++ni];
                 }
             } else {
