@@ -668,6 +668,46 @@ int main(int argc, char **argv)
             } else {
                 n = NULL;
             }
+	
+	//
+            if (ti >= 0) { // ts >= 1
+                last = &tokens[ti];
+            } else {
+                last = NULL;
+            }
+            //ci = (n? ni : ts);
+            if (n) {
+                ts = ni;
+            } else {
+                n = &tokens[ts];
+                while (n->typ == TK_SINGLELINE_COMMENT || n->typ == TK_MULTILINES_COMMENT) { // filter comment
+                    if (ts >= te-1) { // no more
+                        n = NULL;
+                        break;
+                    }
+                    // more
+                    n = &tokens[++ts];
+                }
+                if (!n)
+                    break;
+            }
+            Token &c = tokens[ts];
+            ti = ts;
+            if (ts+1 < te) {
+                ni = ts+1;
+                n = &tokens[ni];
+                while (n->typ == TK_SINGLELINE_COMMENT || n->typ == TK_MULTILINES_COMMENT) {
+                    if (ni >= te-1) { // no more
+                        n = NULL;
+                        break;
+                    }
+                    // more
+                    n = &tokens[++ni];
+                }
+            } else {
+                n = NULL;
+            }
+
 
     return 0;
 }
