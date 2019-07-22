@@ -772,6 +772,7 @@ int main(int argc, char **argv)
             // else {
             //     n = NULL;
             // }
+	//Token* getValidTokenOrNext(std::vector<Token>& tokens, size_t ni, size_t te, size_t *niNow = nullptr)
 
             if (c.typ == TK_MACRO_STMT_SHARP) {
                 inMacroStmt = true;
