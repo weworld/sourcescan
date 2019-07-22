@@ -708,6 +708,83 @@ int main(int argc, char **argv)
                 n = NULL;
             }
 
+	//
+        size_t ss = tokens.size();
+        parseLine(line, tokens, lineCountBase);
+        e = lines.size();
+        auto end = tokens.rbegin()+tokens.size()-ss;
+        if (end == std::find_if(tokens.rbegin(), end,
+            [](const Token& a) {
+                bool temp = (a.typ == TK_SEMICOLUMN || a.typ == TK_LBRACE || a.typ == TK_RBRACE);
+                return temp;
+            })
+        ) {
+            lineCountBase = (size_t)(-1);
+            continue;
+        }
+
+        ts = te;
+        te = tokens.size();
+        while (ts < te) {
+            // Get Last Token
+            if (ts >= 1) { // ti >= 0
+                last = &tokens[ti];
+            } else {
+                last = NULL;
+            }
+
+            // Get Current Token
+            //ci = (n? ni : ts);
+            if (n) {
+                ts = ni; // ni is validated, when n != NULL
+            } else {
+                n = &tokens[ts];
+                while (n->typ == TK_SINGLELINE_COMMENT || n->typ == TK_MULTILINES_COMMENT) { // filter comment
+                    if (ts >= te-1) { // no more
+                        n = NULL;
+                        break;
+                    }
+                    // more
+                    //n = &tokens[++ts];
+                    ++n; ++ts;
+                }
+                if (!n) // no more tokens, EXIT the loop.
+                    break;
+            }
+            Token &c = tokens[ts];
+            ti = ts; // remember Last as ti, ts will be increased at the end of the loop.
+
+            // Get Next Token
+            n = NULL;
+            if (ts+1 < te) {
+                ni = ts+1;
+                n = &tokens[ni];
+                while (n->typ == TK_SINGLELINE_COMMENT || n->typ == TK_MULTILINES_COMMENT) {
+                    if (ni >= te-1) { // no more
+                        n = NULL;
+                        break;
+                    }
+                    // more
+                    //n = &tokens[++ni];
+                    ++n; ++ni;
+                }
+            }
+            // else {
+            //     n = NULL;
+            // }
+
+            if (c.typ == TK_MACRO_STMT_SHARP) {
+                inMacroStmt = true;
+            } else if (c.typ == TK_MACRO_STMT_END) {
+                inMacroStmt = false;
+            }
+            if (inMacroStmt) {
+                ++ts;
+                continue;
+            }
+
+            if (c.typ == TK_O_LPARENT)
+                ++parenteDepth;
 
     return 0;
 }
