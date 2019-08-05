@@ -131,3 +131,44 @@ NoLogger& operator<<(NoLogger &logger, ostream_manipulator /*manip*/)
 #define LOGI Logger::getInfoLogger() << LOC
 #define LOGD Logger::getDebugLogger() << LOC
 #define LOGD2 Logger::getDebug2Logger()
+
+
+// isTokStr
+
+enum { LL_ERROR = 0, LL_INFO, LL_VERBOSE, LL_DEBUG, LL_DEBUG_RAW };
+const uint8_t logLevel = LL_DEBUG_RAW;
+const bool showLevelFlag = true;
+const char* levelFlag[] = { "E: ", "I: ", "V: ", "D: ", "" };
+#define LOGE(fmt, ...) LOG(LL_ERROR, fmt "\n", ##__VA_ARGS__)
+#define LOGI(fmt, ...) LOG(LL_INFO, fmt "\n", ##__VA_ARGS__)
+#define LOGV(fmt, ...) LOG(LL_VERBOSE, fmt "\n", ##__VA_ARGS__)
+#define LOGD(fmt, ...) LOG(LL_DEBUG, fmt "\n", ##__VA_ARGS__)
+#define DDD(fmt, ...) LOG(LL_DEBUG_RAW, fmt, ##__VA_ARGS__)
+#define LOG(level, fmt, ...) \
+    do { \
+        if (level >= 0 && level <= LL_DEBUG_RAW) { \
+            if (level <= logLevel) \
+                fprintf(stderr, "%s" fmt, (showLevelFlag? levelFlag[level] : ""), ##__VA_ARGS__); \
+        } else \
+            fprintf(stderr, "ERROR: Log level error. (%d). %s:%d\n", level, __FILE__, __LINE__); \
+    } while (0)
+
+enum { V_LOW = 0, V_MEDIUM, V_HIGH, V_CRITICAL };
+
+const bool showReport = true;
+const bool showReportPrefix = false;
+const char* reportPrefix = "VULN: ";
+const char* vulnLevelStr[] = { "LOW", "MDM", "HGH", "CRT" };
+
+#define PRINT_VULN(level, fmt, ...) \
+    do { \
+        if (showReport) { \
+            if (level >= V_LOW && level <= V_CRITICAL) { \
+                fprintf(stderr, "%s[%s] " fmt, (showReportPrefix? reportPrefix : ""), vulnLevelStr[level], ##__VA_ARGS__); \
+            } else {\
+                LOGD("Vulnerable level error. (%d). \t%s:%d", level, __FILE__, __LINE__); \
+            } \
+        } \
+    } while (0)
+
+// sUnkownTok
