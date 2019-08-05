@@ -836,6 +836,33 @@ int main(int argc, char **argv)
                         analyzeCalls(tokens, ts, te, c, file);
                     }
                 }
+		
+		//
+		
+		// statments
+		
+
+            // analysis if cond for malloc
+            if (s_Malloc) {
+                if (last->typ == TK_SEMICOLUMN || last->typ == TK_RBRACE) {
+                    if (c.typ == TK_IF) {
+                    } else {
+                        //printf("\t#must check the return of malloc. %s:%d:%d\n", file, c.line, c.column);
+                        PRINT_VULN(V_HIGH, "\tMust check null pointer for the return value of malloc(...)\t%s:%d:%d\n", file, last->line, last->column+1);
+                    }
+                    s_Malloc = false;
+                }
+            }
+
+            // analysis declare array with a variable
+            //if () {
+                
+            //}
+
+            // Statements match .. c2
+		PRINT_VULN(V_CRITICAL, "\t#unsafe Out-Of-Range.\t%s:%d:%d\n", file, c.line, c.column);
+            // Buffer Analysis .. c1 c3
+                PRINT_VULN(V_CRITICAL, "\t#unsafe Out-Of-Range-Add.\t%s:%d:%d\n", file, c.line, c.column);
     return 0;
 }
 
@@ -861,3 +888,43 @@ struct MacroDefinition {
 std::unordered_map<std::string, MacroDefinition> g_macroMap;
 
 // analyzeCalls
+//} else if (isTokStr(c, "malloc")) {
+        ti = ti+2; // ti = ts+2;
+        parseCallArgs(tokens, ti, te, args);
+        if (args.size() == 1) {
+            printf("malloc:%s\t", args[0].c_str());
+            printf("%s:%d:%d\t", file, c.line, c.column);
+            s_Malloc = true;
+        }
+//    }
+
+	
+// tokens.push_back
+            if (tok.typ != TK_SINGLELINE_COMMENT && tok.typ != TK_MULTILINES_COMMENT) { // filter comment token
+                lastTokTyp = tok.typ;
+            }
+            gotToken = false;
+            tok = sUnkownTok;
+
+	
+// Range caculate
+
+/*inline*/ Token* getValidTokenFrom(std::vector<Token>& tokens, size_t ni, size_t te, size_t *niNow = nullptr) {
+    Token* n = NULL;
+    if (ni < te) {
+        n = &tokens[ni];
+        while (n->typ == TK_SINGLELINE_COMMENT || n->typ == TK_MULTILINES_COMMENT) {
+            if (ni >= te-1) { // no more
+                n = NULL;
+                break;
+            }
+            // more
+            //n = &tokens[++ni];
+            ++n; ++ni;
+        }
+    }
+    if (niNow)
+        *niNow = ni;
+    return n;
+}
+	//parse
