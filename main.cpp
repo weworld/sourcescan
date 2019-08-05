@@ -774,19 +774,90 @@ int main(int argc, char **argv)
             // }
 	//Token* getValidTokenOrNext(std::vector<Token>& tokens, size_t ni, size_t te, size_t *niNow = nullptr)
 
+	///////////
             if (c.typ == TK_MACRO_STMT_SHARP) {
                 inMacroStmt = true;
+                if (n && n->typ == TK_DEFINE) {
+                    isMacroDefine = true;
+                }
             } else if (c.typ == TK_MACRO_STMT_END) {
                 inMacroStmt = false;
+                isMacroDefine = false;
+                DDD("\n");
             }
             if (inMacroStmt) {
                 ++ts;
+
+                if (c.typ == TK_CONTINUATION) {
+                    DDD("$($)$");
+                }
+
+                if (parenteDepth > 0 && c.typ == TK_MACRO_STMT_SHARP) {
+                    PRINT_VULN(V_MEDIUM, "\tmacro select in parents\t%s:%d:%d", file, c.line, c.column);
+                    DDD(" %s", getTokenStr(c).c_str());
+                }
+
+                DDD(" %s", getTokenStr(c).c_str());
+                if (c.typ == TK_CONCAT) {
+                    DDD("$$$");
+                }
+                if (isMacroDefine && n && n->typ == TK_O_LPARENT) {
+                    DDD("$$$$%s", getTokenStr(c).c_str());
+                    std::string macroName = getTokenStr(c);
+                    MacroDefinition m(macroName, ts, true);
+                    g_macroMap[macroName] = m;
+                }
                 continue;
             }
-
-            if (c.typ == TK_O_LPARENT)
+	
+	    if (c.typ == TK_O_LPARENT)
                 ++parenteDepth;
 
+		// {{Calls}}
+		//.. bool compStmtTok = false;
+		
+                if (braceDepth == 0) {
+                    head = &c;
+                    headIndex = ts;
+                } else if (braceDepth > 0) {
+                    std::string name = getTokenStr(c);
+                    auto itr = g_macroMap.find(name);
+                    if (itr != g_macroMap.end()) {
+                        std::vector<std::string> args;
+                        parseCallArgs(tokens, ts+2, te, args);
+                        std::string ops = "+-*/%=";
+                        for (auto arg : args) {
+                            size_t pos = arg.find_first_of(ops);
+                            if (pos != std::string::npos) {
+                                PRINT_VULN(V_MEDIUM, "\tChange expression in macro '%s'.\t%s:%d:%d\n", name.c_str(), file, c.line, c.column);
+                            }
+                        }
+                    } else {
+                        analyzeCalls(tokens, ts, te, c, file);
+                    }
+                }
     return 0;
 }
 
+	
+// destroyStmtStack
+	
+struct MacroDefinition {
+    std::string name;
+    size_t pos;
+    bool isMacroFunc;
+    unsigned char paramCount;
+    bool isLastVarParams;
+
+    MacroDefinition() {
+    }
+    MacroDefinition(std::string name, size_t pos, bool isMacroFunc)
+        : name(name), pos(pos), isMacroFunc(isMacroFunc) {
+    }
+};
+
+// g_bufferSizeMap;
+// g_constMap;
+std::unordered_map<std::string, MacroDefinition> g_macroMap;
+
+// analyzeCalls
